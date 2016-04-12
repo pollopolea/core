@@ -76,7 +76,8 @@
 					sorting: {
 						mode: $('#defaultFileSorting').val(),
 						direction: $('#defaultFileSortingDirection').val()
-					}
+					},
+					showHiddenFiles: $('#showHiddenFiles').val()
 				}
 			);
 			this.files.initialize();
