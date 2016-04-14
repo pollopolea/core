@@ -1498,9 +1498,11 @@ function initCore() {
 			interval = maxInterval;
 		}
 		var url = OC.generateUrl('/heartbeat');
-		setInterval(function(){
+		var debouncedHeartbeat = _.debounce(function() {
 			$.post(url);
 		}, interval * 1000);
+		$(document).ajaxComplete(debouncedHeartbeat);
+		debouncedHeartbeat();
 	}
 
 	// session heartbeat (defaults to enabled)

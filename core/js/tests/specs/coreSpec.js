@@ -340,7 +340,7 @@ describe('Core base tests', function() {
 			clock.tick(20 * 1000);
 			expect(counter).toEqual(2);
 		});
-		it('does no send heartbeat when heartbeat disabled', function() {
+		it('does not send heartbeat when heartbeat disabled', function() {
 			/* jshint camelcase: false */
 			window.oc_config = {
 				session_keepalive: false,
@@ -358,23 +358,25 @@ describe('Core base tests', function() {
 		});
 		it('limits the heartbeat between one minute and one day', function() {
 			/* jshint camelcase: false */
-			var setIntervalStub = sinon.stub(window, 'setInterval');
+			var debounceStub = sinon.stub(_, 'debounce');
+			var fn = function() {};
+			debounceStub.returns(fn);
 			window.oc_config = {
 				session_keepalive: true,
 				session_lifetime: 5
 			};
 			window.initCore();
-			expect(setIntervalStub.getCall(0).args[1]).toEqual(60 * 1000);
-			setIntervalStub.reset();
+			expect(debounceStub.getCall(0).args[1]).toEqual(60 * 1000);
+			debounceStub.reset();
 
 			window.oc_config = {
 				session_keepalive: true,
 				session_lifetime: 48 * 3600
 			};
 			window.initCore();
-			expect(setIntervalStub.getCall(0).args[1]).toEqual(24 * 3600 * 1000);
+			expect(debounceStub.getCall(0).args[1]).toEqual(24 * 3600 * 1000);
 
-			setIntervalStub.restore();
+			debounceStub.restore();
 		});
 	});
 	describe('Parse query string', function() {
