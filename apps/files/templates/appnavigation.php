@@ -17,8 +17,9 @@
 		</div>
 		<div id="app-settings-content">
 			<div>
-				<label for="showhiddenfiles"><?php p($l->t('Show hidden files')); ?></label>
-				<input id="showhiddenfiles" type="checkbox" class="" checked="checked" />
+				<span><input class="checkbox" id="showhiddenfiles" checked="checked" type="checkbox">
+					<label for="showhiddenfiles"></label></span>
+				<span><?php p($l->t('Show hidden files')); ?></span>
 			</div>
 			<label for="webdavurl"><?php p($l->t('WebDAV'));?></label>
 			<input id="webdavurl" type="text" readonly="readonly" value="<?php p(\OCP\Util::linkToRemote('webdav')); ?>" />
