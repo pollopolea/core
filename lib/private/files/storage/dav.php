@@ -756,6 +756,9 @@ class DAV extends Common {
 				}
 				if (!empty($etag) && $cachedData['etag'] !== $etag) {
 					return true;
+				} else if (isset($response['{http://owncloud.org/ns}share-permissions'])) {
+					$sharePermissions = (int)$response['{http://owncloud.org/ns}share-permissions'];
+					return $sharePermissions !== $cachedData['permissions'];
 				} else if (isset($response['{http://owncloud.org/ns}permissions'])) {
 					$permissions = $this->parsePermissions($response['{http://owncloud.org/ns}permissions']);
 					return $permissions !== $cachedData['permissions'];
