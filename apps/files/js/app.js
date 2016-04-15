@@ -11,7 +11,7 @@
  *
  */
 
-/* global dragOptions, folderDropOptions */
+/* global dragOptions, folderDropOptions, OC */
 (function() {
 
 	if (!OCA.Files) {
@@ -94,6 +94,8 @@
 			this._setupEvents();
 			// trigger URL change event handlers
 			this._onPopState(urlParams);
+
+			this._debouncedPersistShowHiddenFilesState = _.debounce(this._persistShowHiddenFilesState, 1200);
 		},
 
 		/**
@@ -161,9 +163,27 @@
 			this.$showHiddenFiles.on('change', _.bind(this._onShowHiddenFilesChange, this));
 		},
 
+		/**
+		 * Toggle showing hidden files according to the settings checkbox
+		 *
+		 * @returns {undefined}
+		 */
 		_onShowHiddenFilesChange: function() {
 			var show = this.$showHiddenFiles.is(':checked');
 			this.fileList.setShowHiddenFiles(show);
+			this._debouncedPersistShowHiddenFilesState();
+		},
+
+		/**
+		 * Persist show hidden preference on ther server
+		 *
+		 * @returns {undefined}
+		 */
+		_persistShowHiddenFilesState: function() {
+			var show = this.$showHiddenFiles.is(':checked');
+			$.post(OC.generateUrl('/apps/files/api/v1/showhidden'), {
+				show: show
+			});
 		},
 
 		/**
