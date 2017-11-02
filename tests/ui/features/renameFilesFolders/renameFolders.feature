@@ -11,7 +11,7 @@ Feature: renameFolders
 		And the files page is reloaded
 		Then the folder <to_folder_name> should be listed
 		Examples:
-		|to_folder_name|
+		|to_folder_name |
 		|'सिमप्ले फोल्देर$%#?&@' |
 		|'"quotes1"'    |
 		|"'quotes2'"    |
@@ -72,22 +72,10 @@ Feature: renameFolders
 		When I rename the folder "simple-folder" to one of these names
 		|simple\folder   |
 		|\\simple-folder |
-		Then notifications should be displayed with the text
-		|Could not rename "simple-folder"|
-		|Could not rename "simple-folder"|
-		And the folder "simple-folder" should be listed
-
-	Scenario: Rename a folder to a forbidden name
-		When I rename the folder "simple-folder" to one of these names
 		|.htaccess       |
 		Then notifications should be displayed with the text
 		|Could not rename "simple-folder"|
-		And the folder "simple-folder" should be listed
-
-	Scenario: Rename a folder to a forbidden name
-		When I rename the folder "simple-folder" to one of these names
-		|.htaccess       |
-		Then notifications should be displayed with the text
+		|Could not rename "simple-folder"|
 		|Could not rename "simple-folder"|
 		And the folder "simple-folder" should be listed
 

@@ -23,6 +23,7 @@
 
 namespace Page;
 
+use SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException;
 use SensioLabs\Behat\PageObjectExtension\PageObject\Page;
 use Behat\Mink\Session;
 use Behat\Mink\Element\NodeElement;
@@ -36,11 +37,12 @@ use Page\OwncloudPageElement\OCDialog;
 class OwncloudPage extends Page {
 
 	protected $userNameDisplayId = "expandDisplayName";
+	protected $notificationId = "notification";
 	protected $ocDialogXpath = ".//*[@class='oc-dialog']";
-	
+
 	/**
 	 * used to store the unchanged path string when $path gets changed
-	 * 
+	 *
 	 * @var string
 	 */
 	protected $originalPath = null;
@@ -69,6 +71,13 @@ class OwncloudPage extends Page {
 			usleep(STANDARDSLEEPTIMEMICROSEC);
 			$currentTime = microtime(true);
 		}
+
+		if ($currentTime > $end) {
+			throw new \Exception(
+				__METHOD__ . " timeout waiting for page to load"
+			);
+		}
+
 		$this->waitForOutstandingAjaxCalls($session);
 	}
 
@@ -90,7 +99,7 @@ class OwncloudPage extends Page {
 			} catch (WebDriverException $e) {
 				break;
 			}
-			if ($element === null) {
+			if (is_null($element)) {
 				break;
 			}
 			usleep(STANDARDSLEEPTIMEMICROSEC);
@@ -102,7 +111,7 @@ class OwncloudPage extends Page {
 	 *
 	 * @param string $xpath
 	 * @param int $timeout_msec
-	 * @return void
+	 * @return NodeElement|null
 	 */
 	public function waitTillElementIsNotNull(
 		$xpath, $timeout_msec = STANDARDUIWAITTIMEOUTMILLISEC
@@ -111,36 +120,58 @@ class OwncloudPage extends Page {
 		$end = $currentTime + ($timeout_msec / 1000);
 		while ($currentTime <= $end) {
 			try {
+				/**
+				 * @var NodeElement $element
+				 */
 				$element = $this->find("xpath", $xpath);
-				if ($element === null || !$element->isValid()) {
+				if (is_null($element) || !$element->isValid()) {
 					usleep(STANDARDSLEEPTIMEMICROSEC);
 				} else {
-					break;
+					return $element;
 				}
 			} catch (WebDriverException $e) {
 				usleep(STANDARDSLEEPTIMEMICROSEC);
 			}
 			$currentTime = microtime(true);
 		}
+
+		return null;
 	}
 
 	/**
 	 * Get the text of the first notification
 	 *
+	 * @throws ElementNotFoundException
 	 * @return string
 	 */
 	public function getNotificationText() {
-		return $this->findById("notification")->getText();
+		$notificationElement = $this->findById($this->notificationId);
+
+		if (is_null($notificationElement)) {
+			throw new ElementNotFoundException(
+				__METHOD__ . " could not find element with id $this->notificationId"
+			);
+		}
+
+		return $notificationElement->getText();
 	}
 
 	/**
 	 * Get the text of any notifications
 	 *
+	 * @throws ElementNotFoundException
 	 * @return array
 	 */
 	public function getNotifications() {
 		$notificationsText = array();
-		$notifications = $this->findById("notification");
+		$notifications = $this->findById($this->notificationId);
+
+		if (is_null($notifications)) {
+			throw new ElementNotFoundException(
+				__METHOD__ . " could not find element with id $this->notificationId"
+			);
+		}
+
 		foreach ($notifications->findAll("xpath", "div") as $notification) {
 			array_push($notificationsText, $notification->getText());
 		}
@@ -157,7 +188,7 @@ class OwncloudPage extends Page {
 		$ocDialogElements = $this->findAll("xpath", $this->ocDialogXpath);
 		foreach ($ocDialogElements as $element) {
 			/**
-			 * 
+			 *
 			 * @var \Page\OwncloudPageElement\OCDialog $ocDialog
 			 */
 			$ocDialog = $this->getPage("OwncloudPageElement\\OCDialog");
@@ -166,23 +197,42 @@ class OwncloudPage extends Page {
 		}
 		return $ocDialogs;
 	}
-	
+
 	/**
 	 * Open the settings menu
 	 *
+	 * @throws ElementNotFoundException
 	 * @return Page
 	 */
 	public function openSettingsMenu() {
-		$this->findById($this->userNameDisplayId)->click();
+		$userNameDisplayElement = $this->findById($this->userNameDisplayId);
+
+		if (is_null($userNameDisplayElement)) {
+			throw new ElementNotFoundException(
+				__METHOD__ . " could not find element with id $this->userNameDisplayId"
+			);
+		}
+
+		$userNameDisplayElement->click();
+
 		return $this->getPage("OwncloudPageElement\\SettingsMenu");
 	}
 	/**
 	 * finds the logged-in username displayed in the top right corner
 	 *
+	 * @throws ElementNotFoundException
 	 * @return string
 	 */
 	public function getMyUsername() {
-		return $this->findById($this->userNameDisplayId)->getText();
+		$userNameDisplayElement = $this->findById($this->userNameDisplayId);
+
+		if (is_null($userNameDisplayElement)) {
+			throw new ElementNotFoundException(
+				__METHOD__ . " could not find element with id $this->userNameDisplayId"
+			);
+		}
+
+		return $userNameDisplayElement->getText();
 	}
 
 	/**
@@ -200,7 +250,7 @@ class OwncloudPage extends Page {
 	 * @return void
 	 */
 	public function setPagePath($path) {
-		if ($this->originalPath === null) {
+		if (is_null($this->originalPath)) {
 			$this->originalPath = $this->path;
 		}
 		$this->path = $path;
@@ -208,11 +258,11 @@ class OwncloudPage extends Page {
 
 	/**
 	 * returns the unchanged path
-	 * 
+	 *
 	 * @return string
 	 */
 	public function getOriginalPath() {
-		if ($this->originalPath !== null) {
+		if (!is_null($this->originalPath)) {
 			return $this->originalPath;
 		} else {
 			return $this->getPath();
@@ -224,7 +274,7 @@ class OwncloudPage extends Page {
 	 *
 	 * @param Session $session
 	 * @param NodeElement $element
-	 * @return Array
+	 * @return array
 	 */
 	public function getCoordinatesOfElement($session, $element) {
 		$elementXpath = str_replace('"', '\"', $element->getXpath());
@@ -241,7 +291,7 @@ class OwncloudPage extends Page {
 	 * Gets the Window Height
 	 *
 	 * @param Session $session
-	 * @return Array
+	 * @return int
 	 */
 	public function getWindowHeight($session) {
 		return $session->evaluateScript(
@@ -251,15 +301,15 @@ class OwncloudPage extends Page {
 
 	/**
 	 * scrolls to a position in a specified element
-	 * 
+	 *
 	 * @param string $jQuerySelector e.g. "#app-content"
 	 * @param int|string $position number or JS function that returns a number
 	 * @param Session $session
 	 * @return void
 	 */
 	public function scrollToPosition($jQuerySelector, $position, Session $session) {
-		$session->evaluateScript(
-			'$("' . $jQuerySelector . '").scrollTop(' . $position . ');'
+		$session->executeScript(
+			'jQuery("' . $jQuerySelector . '").scrollTop(' . $position . ');'
 		);
 	}
 
@@ -267,8 +317,7 @@ class OwncloudPage extends Page {
 	 * waits till all ajax calls are finished (jQuery.active === 0)
 	 *
 	 * @param Session $session
-	 * @param number $timeout_msec
-	 * @throws \Exception
+	 * @param int $timeout_msec
 	 * @return void
 	 */
 	public function waitForOutstandingAjaxCalls(
@@ -363,7 +412,7 @@ class OwncloudPage extends Page {
 	 * @return NodeElement|bool
 	 *   The NodeElement selected if true, FALSE otherwise.
 	 */
-	protected function elementHasCSSValue($element, $property, $value) {
+	protected function elementHasCSSValue(NodeElement $element, $property, $value) {
 		$exists = false;
 		$style = $element->getAttribute('style');
 		if ($style) {
@@ -381,13 +430,13 @@ class OwncloudPage extends Page {
 
 		return $exists;
 	}
-	
+
 	/**
 	 * sends an END key and then BACKSPACEs to delete the current value
 	 * then sends the new value
-	 * checks the set value and sends the Escape key + throws an exception 
+	 * checks the set value and sends the Escape key + throws an exception
 	 * if the value is not set correctly
-	 * 
+	 *
 	 * @param NodeElement $inputField
 	 * @param string $value
 	 * @throws \Exception
@@ -404,6 +453,35 @@ class OwncloudPage extends Page {
 		if ($resultValue !== $value) {
 			$inputField->keyUp(27); //send escape
 			throw new \Exception("value of input field is not what we expect");
+		}
+	}
+
+	/**
+	 * Surround the text with single or double quotes, whichever does not
+	 * already appear in the text. If the text contains both single and
+	 * double quotes, then throw an InvalidArgumentException.
+	 *
+	 * The returned string is intended for use as part of an xpath (v1).
+	 * xpath (v1) has no way to escape the quote character within a string
+	 * literal. So there is no way to directly use a string containing
+	 * both single and double quotes.
+	 *
+	 * @param string $text
+	 * @return string the text surrounded by single or double quotes
+	 * @throws \InvalidArgumentException
+	 */
+	public function quotedText($text) {
+		if (strstr($text, "'") === false) {
+			return "'" . $text . "'";
+		} else if (strstr($text, '"') === false) {
+			return '"' . $text . '"';
+		} else {
+			// The text contains both single and double quotes.
+			// With current xpath v1 there is no way to encode that.
+			throw new \InvalidArgumentException(
+				"mixing both single and double quotes is unsupported - '"
+				. $text . "'"
+			);
 		}
 	}
 }

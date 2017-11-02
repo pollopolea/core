@@ -37,16 +37,16 @@ class FilesContext extends RawMinkContext implements Context {
 
 	private $filesPage;
 	private $trashbinPage;
-	
+
 	/**
 	 * Table of all files and folders that should have been deleted, stored so
 	 * that other steps can use the list to check if the deletion happened correctly
 	 * table headings: must be: |name|
-	 * 
+	 *
 	 * @var TableNode
 	 */
 	private $deletedElementsTable = null;
-	
+
 	/**
 	 * Table of all files and folders that should have been moved, stored so
 	 * that other steps can use the list to check if the moving happened correctly
@@ -60,6 +60,7 @@ class FilesContext extends RawMinkContext implements Context {
 	 * FilesContext constructor.
 	 *
 	 * @param FilesPage $filesPage
+	 * @param TrashbinPage $trashbinPage
 	 */
 	public function __construct(
 		FilesPage $filesPage, TrashbinPage $trashbinPage
@@ -88,14 +89,51 @@ class FilesContext extends RawMinkContext implements Context {
 	}
 
 	/**
-	 * @When I create a folder with the name :name
-	 * 
+	 * @When /^I create a folder with the name ((?:'[^']*')|(?:"[^"]*"))$/
+	 *
+	 * @param string|array $name enclosed in single or double quotes
+	 * @return void
+	 */
+	public function iCreateAFolder($name) {
+		// The capturing group of the regex always includes the quotes at each
+		// end of the captured string, so trim them.
+		$this->createAFolder(trim($name, $name[0]));
+	}
+
+	/**
 	 * @param string $name
 	 * @return void
 	 */
 	public function createAFolder($name) {
 		$this->filesPage->createFolder($name);
 		$this->filesPage->waitTillPageIsLoaded($this->getSession());
+	}
+
+	/**
+	 * @When I create a folder with the following name
+	 * @param TableNode $namePartsTable table of parts of the file name
+	 *                                  table headings: must be: |name-parts |
+	 * @return void
+	 */
+	public function createTheFollowingFolder(TableNode $namePartsTable) {
+		$fileName = '';
+
+		foreach ($namePartsTable as $namePartsRow) {
+			$fileName .= $namePartsRow['name-parts'];
+		}
+
+		$this->createAFolder($fileName);
+	}
+
+	/**
+	 * @Then there are no files\/folders listed
+	 * @return void
+	 */
+	public function thereAreNoFilesFoldersListed() {
+		PHPUnit_Framework_Assert::assertEquals(
+			0,
+			$this->filesPage->getSizeOfFileFolderList()
+		);
 	}
 
 	/**
@@ -114,7 +152,7 @@ class FilesContext extends RawMinkContext implements Context {
 				$this->filesPage->findFileActionsMenuBtnByNo($itemsCount)
 			);
 		}
-		
+
 		while ($windowHeight > $lastItemCoordinates['top']) {
 			$this->filesPage->createFolder();
 			$itemsCount = $this->filesPage->getSizeOfFileFolderList();
@@ -171,7 +209,7 @@ class FilesContext extends RawMinkContext implements Context {
 		foreach ($table->getRows() as $row) {
 			$this->filesPage->renameFile($fromName, $row[0], $this->getSession());
 		}
-		
+
 	}
 
 	/**
@@ -193,7 +231,7 @@ class FilesContext extends RawMinkContext implements Context {
 	 */
 	public function iDeleteTheFollowingFile(TableNode $namePartsTable) {
 		$fileNameParts = [];
-		
+
 		foreach ($namePartsTable as $namePartsRow) {
 			$fileNameParts[] = $namePartsRow['name-parts'];
 		}
@@ -216,8 +254,8 @@ class FilesContext extends RawMinkContext implements Context {
 
 	/**
 	 * @When I move the file/folder :name into the folder :destination
-	 * @param string $name
-	 * @param string $destination
+	 * @param string|array $name
+	 * @param string|array $destination
 	 * @return void
 	 */
 	public function iMoveTheFileFolderTo($name, $destination) {
@@ -234,7 +272,7 @@ class FilesContext extends RawMinkContext implements Context {
 	public function iMoveTheFollowingFileFolderTo(TableNode $namePartsTable) {
 		$itemToMoveNameParts = [];
 		$destinationNameParts = [];
-		
+
 		foreach ($namePartsTable as $namePartsRow) {
 			$itemToMoveNameParts[] = $namePartsRow['item-to-move-name-parts'];
 			$destinationNameParts[] = $namePartsRow['destination-name-parts'];
@@ -264,23 +302,14 @@ class FilesContext extends RawMinkContext implements Context {
 	 * @return void
 	 */
 	public function theDeletedMovedElementsShouldBeListed($shouldOrNot) {
-		$should = ($shouldOrNot !== "not");
 		if (!is_null($this->deletedElementsTable)) {
 			foreach ($this->deletedElementsTable as $file) {
-				if ($should) {
-					$this->theFileFolderShouldBeListed($file['name']);
-				} else {
-					$this->theFileFolderShouldNotBeListed($file['name']);
-				}
+				$this->checkIfFileFolderIsListed($file['name'], $shouldOrNot);
 			}
 		}
 		if (!is_null($this->movedElementsTable)) {
 			foreach ($this->movedElementsTable as $file) {
-				if ($should) {
-					$this->theFileFolderShouldBeListed($file['name']);
-				} else {
-					$this->theFileFolderShouldNotBeListed($file['name']);
-				}
+				$this->checkIfFileFolderIsListed($file['name'], $shouldOrNot);
 			}
 		}
 	}
@@ -304,9 +333,9 @@ class FilesContext extends RawMinkContext implements Context {
 	public function theDeletedElementsShouldBeListedInTheTrashbin() {
 		$this->trashbinPage->open();
 		$this->trashbinPage->waitTillPageIsLoaded($this->getSession());
-		
+
 		foreach ($this->deletedElementsTable as $file) {
-			$this->theFileFolderShouldBeListed($file['name'], $this->trashbinPage);
+			$this->checkIfFileFolderIsListed($file['name'], "", $this->trashbinPage);
 		}
 	}
 
@@ -347,7 +376,7 @@ class FilesContext extends RawMinkContext implements Context {
 
 	/**
 	 * @When I open the file/folder :name
-	 * @param string $name
+	 * @param string|array $name
 	 * @return void
 	 */
 	public function iOpenTheFolder($name) {
@@ -357,46 +386,78 @@ class FilesContext extends RawMinkContext implements Context {
 	}
 
 	/**
-	 * @Then the file/folder :name should be listed
-	 * @param string $name
+	 * @When I open the trashbin file/folder :name
+	 * @param string|array $name
+	 * @return void
+	 */
+	public function iOpenTheTrashbinFolder($name) {
+		$this->trashbinPage->waitTillPageIsLoaded($this->getSession());
+		$this->trashbinPage->openFile($name, $this->getSession());
+		$this->trashbinPage->waitTillPageIsLoaded($this->getSession());
+	}
+
+	/**
+	 * @Then /^the (?:file|folder) ((?:'[^']*')|(?:"[^"]*")) should (not|)\s?be listed\s?(in the trashbin|)$/
+	 * @param string|array $name enclosed in single or double quotes
+	 * @param string $shouldOrNot
+	 * @param string|null $trashbin
 	 * @param PageObject|null $pageObject if null $this->filesPage will be used
 	 * @return void
 	 */
 	public function theFileFolderShouldBeListed(
-		$name, $pageObject = null
+		$name, $shouldOrNot, $trashbin = "", $pageObject = null
 	) {
-		if (is_null($pageObject)) {
-			$pageObject = $this->filesPage;
-		}
-		$pageObject->waitTillPageIsLoaded($this->getSession());
-		PHPUnit_Framework_Assert::assertNotNull(
-			$pageObject->findFileRowByName($name, $this->getSession())
+		// The capturing group of the regex always includes the quotes at each
+		// end of the captured string, so trim them.
+		$this->checkIfFileFolderIsListed(
+			trim($name, $name[0]), $shouldOrNot, $trashbin, $pageObject
 		);
 	}
 
 	/**
-	 * @Then the file/folder :name should not be listed
-	 * @param string $name
+	 * @param string|array $name
+	 * @param string $shouldOrNot
+	 * @param string|null $trashbin
 	 * @param PageObject|null $pageObject if null $this->filesPage will be used
 	 * @return void
 	 */
-	public function theFileFolderShouldNotBeListed($name, $pageObject = null) {
+	public function checkIfFileFolderIsListed(
+		$name, $shouldOrNot, $trashbin = "", $pageObject = null
+	) {
+		$should = ($shouldOrNot !== "not");
 		$message = null;
-		if (is_null($pageObject)) {
-			$pageObject = $this->filesPage;
+
+		if ($trashbin !== "") {
+			$this->trashbinPage->open();
+			$pageObject = $this->trashbinPage;
+		} else {
+			if (is_null($pageObject)) {
+				$pageObject = $this->filesPage;
+			}
 		}
+
+		$pageObject->waitTillPageIsLoaded($this->getSession());
+
 		try {
-			$pageObject->findFileRowByName($name, $this->getSession());
+			$fileRowElement = $pageObject->findFileRowByName($name, $this->getSession());
+			$message = '';
 		} catch (ElementNotFoundException $e) {
 			$message = $e->getMessage();
+			$fileRowElement = null;
 		}
-		if (is_array($name)) {
-			$name = implode($name);
+
+		if ($should) {
+			PHPUnit_Framework_Assert::assertNotNull($fileRowElement);
+		} else {
+			if (is_array($name)) {
+				$name = implode($name);
+			}
+
+			PHPUnit_Framework_Assert::assertContains(
+				"could not find file with the name '" . $name . "'",
+				$message
+			);
 		}
-		PHPUnit_Framework_Assert::assertEquals(
-			"could not find file with the name '" . $name . "'",
-			$message
-		);
 	}
 
 	/**
@@ -410,7 +471,7 @@ class FilesContext extends RawMinkContext implements Context {
 	) {
 		$this->iOpenTheFolder($folderName);
 		$this->filesPage->waitTillPageIsLoaded($this->getSession());
-		$this->theFileFolderShouldBeListed($itemToBeListed);
+		$this->checkIfFileFolderIsListed($itemToBeListed, "");
 	}
 
 	/**
@@ -438,13 +499,14 @@ class FilesContext extends RawMinkContext implements Context {
 		$shouldOrNot, TableNode $namePartsTable
 	) {
 		$toBeListedTableArray[] = ["name-parts"];
+		$folderNameParts = [];
 		foreach ($namePartsTable as $namePartsRow) {
 			$folderNameParts[] = $namePartsRow['folder-name-parts'];
 			$toBeListedTableArray[] = [$namePartsRow['item-name-parts']];
 		}
 		$this->iOpenTheFolder($folderNameParts);
 		$this->filesPage->waitTillPageIsLoaded($this->getSession());
-		
+
 		$toBeListedTable = new TableNode($toBeListedTableArray);
 		$this->theFollowingFileFolderShouldBeListed(
 			$shouldOrNot, "", $toBeListedTable
@@ -462,25 +524,13 @@ class FilesContext extends RawMinkContext implements Context {
 	public function theFollowingFileFolderShouldBeListed(
 		$shouldOrNot, $trashbin, TableNode $namePartsTable
 	) {
-		$should = ($shouldOrNot !== "not");
 		$fileNameParts = [];
 
 		foreach ($namePartsTable as $namePartsRow) {
 			$fileNameParts[] = $namePartsRow['name-parts'];
 		}
 
-		if ($trashbin !== "") {
-			$this->trashbinPage->open();
-			$this->trashbinPage->waitTillPageIsLoaded($this->getSession());
-			$pageObject = $this->trashbinPage;
-		} else {
-			$pageObject = $this->filesPage;
-		}
-		if ($should) {
-			$this->theFileFolderShouldBeListed($fileNameParts, $pageObject);
-		} else {
-			$this->theFileFolderShouldNotBeListed($fileNameParts, $pageObject);
-		}
+		$this->checkIfFileFolderIsListed($fileNameParts, $shouldOrNot, $trashbin);
 	}
 
 	/**
@@ -494,7 +544,7 @@ class FilesContext extends RawMinkContext implements Context {
 		$toolTipText
 	) {
 		PHPUnit_Framework_Assert::assertEquals(
-			$toolTipText, 
+			$toolTipText,
 			$this->filesPage->getTooltipOfFile($name, $this->getSession())
 		);
 	}
@@ -508,7 +558,7 @@ class FilesContext extends RawMinkContext implements Context {
 		try {
 			$this->iDeleteTheFile($name);
 		} catch (ElementNotFoundException $e) {
-			PHPUnit_Framework_Assert::assertSame(
+			PHPUnit_Framework_Assert::assertContains(
 				"could not find button 'Delete' in action Menu",
 				$e->getMessage()
 			);

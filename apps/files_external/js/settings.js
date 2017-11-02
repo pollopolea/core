@@ -812,7 +812,9 @@ MountConfigListView.prototype = _.extend({
 
 		// FIXME: Replace with a proper Handlebar template
 		var $tr = this.$el.find('tr#addMountPoint');
-		this.$el.find('tbody').append($tr.clone());
+		var $trCloned = $tr.clone();
+		$trCloned.find('td.mountPoint input').removeAttr('disabled');
+		this.$el.find('tbody').append($trCloned);
 
 		$tr.data('storageConfig', storageConfig);
 		$tr.show();
@@ -820,7 +822,6 @@ MountConfigListView.prototype = _.extend({
 		$tr.find('td.mountOptionsToggle').removeClass('hidden');
 		$tr.find('td').last().removeAttr('style');
 		$tr.removeAttr('id');
-		$tr.find('select#selectBackend');
 		addSelect2($tr.find('.applicableUsers'), this._userListLimit);
 
 		if (storageConfig.id) {
@@ -1452,7 +1453,17 @@ OCA.External.Settings.OAuth2.getAuthUrl = function (backendUrl, data) {
 						OC.dialogs.alert('Auth URL not set',
 							t('files_external', 'No URL provided by backend ' + data['backend_id'])
 						);
+						$tr.trigger('oauth_step1_finished', [{
+							success: false,
+							tr: $tr,
+							data: data
+						}]);
 					} else {
+						$tr.trigger('oauth_step1_finished', [{
+							success: true,
+							tr: $tr,
+							data: data
+						}]);
 						window.location = result.data.url;
 					}
 				});
@@ -1460,6 +1471,11 @@ OCA.External.Settings.OAuth2.getAuthUrl = function (backendUrl, data) {
 				OC.dialogs.alert(result.data.message,
 					t('files_external', 'Error getting OAuth2 URL for ' + data['backend_id'])
 				);
+				$tr.trigger('oauth_step1_finished', [{
+					success: false,
+					tr: $tr,
+					data: data
+				}]);
 			}
 		}
 	);

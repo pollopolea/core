@@ -57,6 +57,7 @@ use OCP\IUserManager;
 use OCP\IUserSession;
 use OCP\Session\Exceptions\SessionNotAvailableException;
 use OCP\Util;
+use Symfony\Component\EventDispatcher\Event;
 use Symfony\Component\EventDispatcher\GenericEvent;
 
 /**
@@ -417,6 +418,9 @@ class Session implements IUserSession, Emitter {
 				\OC::$server->getLogger()->warning(
 					'Skeleton not created due to missing write permission'
 				);
+			} catch(\OC\HintException $hintEx) {
+				// only if Skeleton no existing Dir
+				\OC::$server->getLogger()->error($hintEx->getMessage());
 			}
 
 			// trigger any other initialization
@@ -821,15 +825,28 @@ class Session implements IUserSession, Emitter {
 
 	/**
 	 * logout the user from the session
+	 *
+	 * @return bool
 	 */
 	public function logout() {
+
+		$event = new GenericEvent(null, ['cancel' => false]);
+		$eventDispatcher = \OC::$server->getEventDispatcher();
+		$eventDispatcher->dispatch('\OC\User\Session::pre_logout', $event);
+
+		$this->manager->emit('\OC\User', 'preLogout');
+
+		if ($event['cancel'] === true) {
+			return true;
+		}
+
 		$this->manager->emit('\OC\User', 'logout');
 		$user = $this->getUser();
 		if (!is_null($user)) {
 			try {
 				$this->tokenProvider->invalidateToken($this->session->getId());
 			} catch (SessionNotAvailableException $ex) {
-				
+
 			}
 		}
 		$this->setUser(null);

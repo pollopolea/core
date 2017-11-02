@@ -30,13 +30,7 @@ use Behat\Mink\Session;
 /**
  * Common elements/methods for all Files Pages
  */
-class FilesPageBasic extends OwnCloudPage {
-
-	/**
-	 *
-	 * @var string $path
-	 */
-	protected $emptyContentXpath = ".//*[@id='emptycontent']";
+abstract class FilesPageBasic extends OwnCloudPage {
 
 	protected $fileActionMenuBtnXpathByNo = ".//*[@id='fileList']/tr[%d]//a[@data-action='menu']";
 	protected $fileActionMenuBtnXpath = "//a[@data-action='menu']";
@@ -49,43 +43,38 @@ class FilesPageBasic extends OwnCloudPage {
 	protected $deleteAllSelectedBtnXpath = ".//*[@id='app-content-files']//*[@class='delete-selected']";
 
 	/**
+	 * @return string
+	 */
+	abstract protected function getFileListXpath();
+
+	/**
+	 * @return string
+	 */
+	abstract protected function getFileNamesXpath();
+
+	/**
+	 * @return string
+	 */
+	abstract protected function getFileNameMatchXpath();
+
+	/**
+	 * @return string
+	 */
+	abstract protected function getEmptyContentXpath();
+
+	/**
 	 * @return int the number of files and folders listed on the page
 	 */
 	public function getSizeOfFileFolderList() {
-		return count(
-			$this->find("xpath", $this->fileListXpath)->findAll(
-				"xpath", $this->fileNamesXpath
-			)
-		);
-	}
+		$fileListElement = $this->find("xpath", $this->getFileListXpath());
 
-	/**
-	 * Surround the text with single or double quotes, whichever does not
-	 * already appear in the text. If the text contains both single and
-	 * double quotes, then throw an InvalidArgumentException.
-	 *
-	 * The returned string is intended for use as part of an xpath (v1).
-	 * xpath (v1) has no way to escape the quote character within a string
-	 * literal. So there is no way to directly use a string containing
-	 * both single and double quotes.
-	 *
-	 * @param string $text
-	 * @return string the text surrounded by single or double quotes
-	 * @throws \InvalidArgumentException
-	 */
-	public function quotedText($text) {
-		if (strstr($text, "'") === false) {
-			return "'" . $text . "'";
-		} else if (strstr($text, '"') === false) {
-			return '"' . $text . '"';
-		} else {
-			// The text contains both single and double quotes.
-			// With current xpath v1 there is no way to encode that.
-			throw new \InvalidArgumentException(
-				"mixing both single and double quotes is unsupported - '"
-				. $text . "'"
-			);
+		if (is_null($fileListElement)) {
+			return 0;
 		}
+
+		return count(
+			$fileListElement->findAll("xpath", $this->getFileNamesXpath())
+		);
 	}
 
 	/**
@@ -103,7 +92,7 @@ class FilesPageBasic extends OwnCloudPage {
 	 * @param string|array $name
 	 * @param Session $session
 	 * @return FileRow
-	 * @throws \SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException
+	 * @throws ElementNotFoundException
 	 */
 	public function findFileRowByName($name, Session $session) {
 		$previousFileCount = 0;
@@ -111,17 +100,22 @@ class FilesPageBasic extends OwnCloudPage {
 		$this->scrollToPosition('#' . $this->appContentId, 0, $session);
 
 		if (is_array($name)) {
-			// Concatenating separate parts of the file name allows
-			// some parts to contain single quotes and the others to contain
-			// double quotes.
-			$comma = '';
-			$xpathString = "concat(";
+			if (count($name) === 1) {
+				$xpathString = $this->quotedText($name[0]);
+			} else {
+				// Concatenating separate parts of the file name allows
+				// some parts to contain single quotes and the others to contain
+				// double quotes.
+				$comma = '';
+				$xpathString = "concat(";
 
-			foreach ($name as $nameComponent) {
-				$xpathString .= $comma . $this->quotedText($nameComponent);
-				$comma = ',';
+				foreach ($name as $nameComponent) {
+					$xpathString .= $comma . $this->quotedText($nameComponent);
+					$comma = ',';
+				}
+				$xpathString .= ")";
 			}
-			$xpathString .= ")";
+
 			$name = implode($name);
 		} else {
 			$xpathString = $this->quotedText($name);
@@ -130,10 +124,20 @@ class FilesPageBasic extends OwnCloudPage {
 		//loop to keep on scrolling down to load not viewed files
 		//when the scroll does not retrieve any new files, the file is not there
 		do {
-			$fileNameMatch = $this->find("xpath", $this->fileListXpath)->find(
-				"xpath", sprintf($this->fileNameMatchXpath, $xpathString)
+			$fileListElement = $this->waitTillElementIsNotNull($this->getFileListXpath());
+
+			if (is_null($fileListElement)) {
+				throw new ElementNotFoundException(
+					__METHOD__ .
+					" xpath " . $this->getFileListXpath() .
+					" could not find file list"
+				);
+			}
+
+			$fileNameMatch = $fileListElement->find(
+				"xpath", sprintf($this->getFileNameMatchXpath(), $xpathString)
 			);
-			
+
 			if (is_null($fileNameMatch) || !$fileNameMatch->isVisible()) {
 				if (is_null($currentFileCount)) {
 					$currentFileCount = $this->getSizeOfFileFolderList();
@@ -158,7 +162,8 @@ class FilesPageBasic extends OwnCloudPage {
 
 		if (is_null($fileNameMatch)) {
 			throw new ElementNotFoundException(
-				"could not find file with the name '" . $name . "'"
+				__METHOD__ .
+				" could not find file with the name '" . $name . "'"
 			);
 		}
 
@@ -166,8 +171,9 @@ class FilesPageBasic extends OwnCloudPage {
 
 		if (is_null($fileRowElement)) {
 			throw new ElementNotFoundException(
-				"could not find fileRow with xpath '"
-				. $this->fileRowFromNameXpath . "'"
+				__METHOD__ .
+				" xpath $this->fileRowFromNameXpath " .
+				"could not find file row"
 			);
 		}
 		$fileRow = $this->getPage('FilesPageElement\\FileRow');
@@ -177,8 +183,8 @@ class FilesPageBasic extends OwnCloudPage {
 	}
 
 	/**
-	 * scrolls down the file list, to loaBasicd not yet displayed files
-	 * 
+	 * scrolls down the file list, to load not yet displayed files
+	 *
 	 * @param Session $session
 	 * @return void
 	 */
@@ -196,15 +202,18 @@ class FilesPageBasic extends OwnCloudPage {
 	/**
 	 * Finds the open File Action Menu
 	 * the File Action Button must be clicked first
-	 * 
+	 *
 	 * @return \Behat\Mink\Element\NodeElement
-	 * @throws \SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException
+	 * @throws ElementNotFoundException
 	 */
 	public function findFileActionMenuElement() {
-		$this->waitTillElementIsNotNull($this->fileActionMenuXpath);
-		$actionMenu = $this->find("xpath", $this->fileActionMenuXpath);
-		if ($actionMenu === null) {
-			throw new ElementNotFoundException("could not find open fileActionMenu");
+		$actionMenu = $this->waitTillElementIsNotNull($this->fileActionMenuXpath);
+		if (is_null($actionMenu)) {
+			throw new ElementNotFoundException(
+				__METHOD__ .
+				" xpath $this->fileActionMenuXpath " .
+				"could not find open fileActionMenu"
+			);
 		} else {
 			return $actionMenu;
 		}
@@ -212,8 +221,8 @@ class FilesPageBasic extends OwnCloudPage {
 
 	/**
 	 * opens a file or navigates into a folder
-	 * 
-	 * @param string $name
+	 *
+	 * @param string|array $name
 	 * @param Session $session
 	 * @return void
 	 */
@@ -223,8 +232,8 @@ class FilesPageBasic extends OwnCloudPage {
 	}
 
 	/**
-	 * 
-	 * @param string $name
+	 *
+	 * @param string|array $name
 	 * @param Session $session
 	 * @return void
 	 */
@@ -235,7 +244,7 @@ class FilesPageBasic extends OwnCloudPage {
 	}
 
 	/**
-	 * 
+	 *
 	 * @throws ElementNotFoundException
 	 * @return \Behat\Mink\Element\NodeElement
 	 */
@@ -245,6 +254,8 @@ class FilesPageBasic extends OwnCloudPage {
 		);
 		if (is_null($deleteAllSelectedBtn)) {
 			throw new ElementNotFoundException(
+				__METHOD__ .
+				" xpath $this->deleteAllSelectedBtnXpath " .
 				"could not find button to delete all selected files"
 			);
 		}
@@ -252,7 +263,7 @@ class FilesPageBasic extends OwnCloudPage {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param Session $session
 	 * @return void
 	 */
@@ -262,7 +273,7 @@ class FilesPageBasic extends OwnCloudPage {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param string $name
 	 * @param Session $session
 	 * @return void
@@ -273,16 +284,18 @@ class FilesPageBasic extends OwnCloudPage {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param int $number
 	 * @throws ElementNotFoundException
 	 * @return \Behat\Mink\Element\NodeElement
 	 */
 	public function findFileActionsMenuBtnByNo($number) {
-		$xpath = sprintf($this->fileActionMenuBtnXpathByNo, $number);
-		$actionMenuBtn = $this->find("xpath", $xpath);
-		if ($actionMenuBtn === null) {
+		$xpathLocator = sprintf($this->fileActionMenuBtnXpathByNo, $number);
+		$actionMenuBtn = $this->find("xpath", $xpathLocator);
+		if (is_null($actionMenuBtn)) {
 			throw new ElementNotFoundException(
+				__METHOD__ .
+				" xpath $xpathLocator " .
 				"could not find action menu button of file #$number"
 			);
 		}
@@ -290,7 +303,7 @@ class FilesPageBasic extends OwnCloudPage {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param int $number
 	 * @return void
 	 */
@@ -299,7 +312,7 @@ class FilesPageBasic extends OwnCloudPage {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param int $number
 	 * @return FileActionsMenu
 	 */
@@ -326,19 +339,37 @@ class FilesPageBasic extends OwnCloudPage {
 		$currentTime = microtime(true);
 		$end = $currentTime + ($timeout_msec / 1000);
 		while ($currentTime <= $end) {
-			$fileList = $this->findById("fileList");
-			if ($fileList !== null
-				&& ($fileList->has("xpath", "//a")
-				|| ! $this->find(
+			$fileList = $this->find('xpath', $this->getFileListXpath());
+
+			if (!is_null($fileList)) {
+				if ($fileList->isVisible()
+					&& $fileList->has("xpath", "//a")
+				) {
+					break;
+				}
+
+				$emptyContentElement = $this->find(
 					"xpath",
-					$this->emptyContentXpath
-				)->hasClass("hidden"))
-			) {
-				break;
+					$this->getEmptyContentXpath()
+				);
+
+				if (!is_null($emptyContentElement)) {
+					if (!$emptyContentElement->hasClass("hidden")) {
+						break;
+					}
+				}
 			}
+
 			usleep(STANDARDSLEEPTIMEMICROSEC);
 			$currentTime = microtime(true);
 		}
+
+		if ($currentTime > $end) {
+			throw new \Exception(
+				__METHOD__ . " timeout waiting for page to load"
+			);
+		}
+
 		$this->waitForOutstandingAjaxCalls($session);
 	}
 }

@@ -5,7 +5,7 @@ Feature: files
 		And I am logged in as a regular user
 		And I am on the files page
 
-	@skipOnIE
+	@skipOnINTERNETEXPLORER
 	Scenario: scroll fileactionsmenu into view
 		And the list of files/folders does not fit in one browser page
 		Then the filesactionmenu should be completely visible after clicking on it
@@ -20,3 +20,12 @@ Feature: files
 		|'सिमप्ले फोल्देर $%#?&@'|
 		|'"somequotes1"'|
 		|"'somequotes2'"|
+
+	Scenario: Create a folder inside another folder
+		When I create a folder with the name "top-folder"
+		And I open the folder "top-folder"
+		Then there are no files/folders listed
+		When I create a folder with the name "sub-folder"
+		Then the folder "sub-folder" should be listed
+		And the files page is reloaded
+		Then the folder "sub-folder" should be listed

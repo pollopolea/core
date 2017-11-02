@@ -24,8 +24,9 @@ namespace Page;
 
 use Behat\Mink\Element\NodeElement;
 use Behat\Mink\Session;
-use SensioLabs\Behat\PageObjectExtension\PageObject\Page;
+use Page\UserPageElement\GroupList;
 use SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException;
+use WebDriver\Exception\NoSuchElement;
 
 /**
  * Users page.
@@ -44,8 +45,7 @@ class UsersPage extends OwncloudPage {
 
 	protected $quotaOptionXpath = "//option[contains(text(), '%s')]";
 
-	protected $manualQuotaInputXpath = "//input[contains(@data-original-title," .
-										"'Please enter storage quota')]";
+	protected $manualQuotaInputXpath = "//input[contains(@data-original-title,'Please enter storage quota')]";
 	protected $settingsBtnXpath = ".//*[@id='app-settings-header']/button";
 	protected $settingContentId = "app-settings-content";
 	protected $labelMailOnUserCreateXpath = ".//label[@for='CheckboxMailOnUserCreate']";
@@ -61,6 +61,7 @@ class UsersPage extends OwncloudPage {
 	protected $newUserGroupXpath = ".//*[@id='newuser']//ul[@class='multiselectoptions down']//label[@title='%s']/..";
 	protected $newUserAddGroupBtnXpath = ".//*[@id='newuser']//ul[@class='multiselectoptions down']//li[@title='add group']";
 	protected $createGroupWithNewUserInputXpath = ".//*[@id='newuser']//ul[@class='multiselectoptions down']//input[@type='text']";
+	protected $groupListId = "usergrouplist";
 	/**
 	 * @param string $username
 	 * @return NodeElement for the requested user in the table
@@ -80,35 +81,56 @@ class UsersPage extends OwncloudPage {
 
 	/**
 	 * @param string $username
+	 * @throws ElementNotFoundException
 	 * @return string text describing the quota
 	 */
 	public function getQuotaOfUser($username) {
 		$userTr = $this->findUserInTable($username);
 		$selectField = $userTr->find('xpath', $this->quotaSelectXpath);
-		$selectField = $selectField->find(
-			'xpath', "//option[@value='" . $selectField->getValue() . "']"
-		);
+
+		if ($selectField === null) {
+			throw new ElementNotFoundException(
+				__METHOD__ .
+				" xpath $this->quotaSelectXpath " .
+				"could not find quota select element"
+			);
+		}
+
+		$xpathLocator = "//option[@value='" . $selectField->getValue() . "']";
+		$selectField = $selectField->find('xpath', $xpathLocator);
+
+		if ($selectField === null) {
+			throw new ElementNotFoundException(
+				__METHOD__ .
+				" xpath $xpathLocator " .
+				"could not find quota element"
+			);
+		}
 
 		return $selectField->getText();
 	}
 
 	/**
 	 * Open the settings menu
-	 * 
+	 *
 	 * @throws ElementNotFoundException
 	 * @return void
 	 */
 	public function openSettingsMenu() {
 		$settingsBtn = $this->find("xpath", $this->settingsBtnXpath);
 		if (is_null($settingsBtn)) {
-			throw new ElementNotFoundException("cannot find settings button");
+			throw new ElementNotFoundException(
+				__METHOD__ .
+				" xpath $this->settingsBtnXpath " .
+				"could not find settings button"
+			);
 		}
 		$settingsBtn->click();
 	}
 
 	/**
 	 * sets a setting in the settings menu
-	 * 
+	 *
 	 * @param string $setting the human readable setting string
 	 * @param boolean $value
 	 * @throws ElementNotFoundException
@@ -117,17 +139,23 @@ class UsersPage extends OwncloudPage {
 	public function setSetting($setting, $value = true) {
 		$settingContent = $this->findById($this->settingContentId);
 		if (is_null($settingContent)) {
-			throw new ElementNotFoundException("cannot find setting content");
+			throw new ElementNotFoundException(
+				__METHOD__ .
+				" id $this->settingContentId " .
+				"could not find setting content"
+			);
 		}
 		if (!$settingContent->isVisible()) {
 			$this->openSettingsMenu();
 		}
-		$settingLabel = $this->find(
-			"xpath", sprintf($this->settingByTextXpath, $setting)
-		);
+
+		$xpathLocator = sprintf($this->settingByTextXpath, $setting);
+		$settingLabel = $this->find("xpath", $xpathLocator);
 		if (is_null($settingLabel)) {
 			throw new ElementNotFoundException(
-				"cannot find setting '" . $setting . "'"
+				__METHOD__ .
+				" xpath $xpathLocator " .
+				"could not find setting '" . $setting . "'"
 			);
 		}
 		//the checkbox is not visible, but we need it to find the status
@@ -135,7 +163,8 @@ class UsersPage extends OwncloudPage {
 		$checkBox = $this->findById($checkBoxId);
 		if (is_null($checkBox)) {
 			throw new ElementNotFoundException(
-				"cannot find checkbox with the id '" . $checkBoxId . "'"
+				__METHOD__ .
+				" could not find checkbox with the id '" . $checkBoxId . "'"
 			);
 		}
 		if ($checkBox->isChecked() !== $value) {
@@ -146,7 +175,7 @@ class UsersPage extends OwncloudPage {
 	/**
 	 * creates a user and adds it to the required groups
 	 * if group does not exist it will be created
-	 * 
+	 *
 	 * @param Session $session
 	 * @param string $username
 	 * @param string $password
@@ -167,7 +196,9 @@ class UsersPage extends OwncloudPage {
 		$createUserBtn = $this->find("xpath", $this->createUserBtnXpath);
 		if (is_null($createUserBtn)) {
 			throw new ElementNotFoundException(
-				"cannot find create user button"
+				__METHOD__ .
+				" xpath $this->createUserBtnXpath " .
+				"could not find create user button"
 			);
 		}
 		$newUserGroupsDropDown = $this->find(
@@ -175,22 +206,31 @@ class UsersPage extends OwncloudPage {
 		);
 		if (is_null($newUserGroupsDropDown)) {
 			throw new ElementNotFoundException(
-				"cannot find groups dropdown for new user"
+				__METHOD__ .
+				" xpath $this->newUserGroupsDropDownXpath " .
+				"could not find groups dropdown for new user"
 			);
 		}
 		$newUserGroupsDropDown->click();
 		$groupDropDownList = $this->find("xpath", $this->newUserGroupsListXpath);
+		if (is_null($groupDropDownList)) {
+			throw new ElementNotFoundException(
+				__METHOD__ .
+				" xpath $this->newUserGroupsListXpath " .
+				"could not find groups dropdown list"
+			);
+		}
 		$groupsInDropDown = $groupDropDownList->findAll(
 			"xpath", $this->newUserGroupsDropDownListTag
 		);
-		
+
 		//uncheck all selected groups
 		foreach ($groupsInDropDown as $groupLi) {
 			if ($groupLi->getAttribute("class") === $this->newUserGroupsSelectedClass) {
 				$groupLi->click();
 			}
 		}
-		
+
 		//now select all groups that we need to have
 		if (is_array($groups)) {
 			foreach ($groups as $group) {
@@ -205,7 +245,9 @@ class UsersPage extends OwncloudPage {
 					);
 					if (is_null($newUserAddGroupBtn)) {
 						throw new ElementNotFoundException(
-							"cannot find add-group button while creating a new user"
+							__METHOD__ .
+							" xpath $this->newUserAddGroupBtnXpath " .
+							"could not find add-group button while creating a new user"
 						);
 					}
 					$newUserAddGroupBtn->click();
@@ -214,19 +256,21 @@ class UsersPage extends OwncloudPage {
 					);
 					if (is_null($createUserInput)) {
 						throw new ElementNotFoundException(
-							"cannot find add-group input while creating a new user"
+							__METHOD__ .
+							" xpath $this->createGroupWithNewUserInputXpath " .
+							"could not find add-group input while creating a new user"
 						);
 					}
 					try {
 						$createUserInput->setValue($group . "\n");
-					} catch (\WebDriver\Exception\NoSuchElement $e) {
+					} catch (NoSuchElement $e) {
 						// this seems to be a bug in MinkSelenium2Driver.
 						// Actually all that we need does happen, so we just don't do anything
 					}
 				}
 			}
 		}
-		
+
 		$createUserBtn->click();
 		$this->waitForAjaxCallsToStartAndFinish($session);
 	}
@@ -235,24 +279,97 @@ class UsersPage extends OwncloudPage {
 	 * @param string $username
 	 * @param string $quota text form of quota to be input
 	 * @param Session $session
+	 * @throws ElementNotFoundException
 	 * @return void
 	 */
 	public function setQuotaOfUserTo($username, $quota, Session $session) {
 		$userTr = $this->findUserInTable($username);
 		$selectField = $userTr->find('xpath', $this->quotaSelectXpath);
 
+		if (is_null($selectField)) {
+			throw new ElementNotFoundException(
+				__METHOD__ .
+				" xpath $this->quotaSelectXpath " .
+				"could not find quota select element"
+			);
+		}
+
 		$selectOption = $selectField->find(
 			'xpath', sprintf($this->quotaOptionXpath, $quota)
 		);
-		if ($selectOption === null) {
-			$selectOption = $selectField->find(
-				'xpath', sprintf($this->quotaOptionXpath, "Other")
-			);
+		if (is_null($selectOption)) {
+			$xpathLocator = sprintf($this->quotaOptionXpath, "Other");
+			$selectOption = $selectField->find('xpath', $xpathLocator);
+
+			if (is_null($selectOption)) {
+				throw new ElementNotFoundException(
+					__METHOD__ .
+					" xpath $xpathLocator " .
+					"could not find quota option element"
+				);
+			}
+
 			$selectOption->click();
-			$this->find('xpath', $this->manualQuotaInputXpath)->setValue($quota);
+			$manualQuotaInputElement = $this->find('xpath', $this->manualQuotaInputXpath);
+
+			if (is_null($manualQuotaInputElement)) {
+				throw new ElementNotFoundException(
+					__METHOD__ .
+					" xpath $this->manualQuotaInputXpath " .
+					"could not find manual quota input element"
+				);
+			}
+
+			$manualQuotaInputElement->setValue($quota);
 		} else {
 			$selectOption->click();
 		}
 		$this->waitForOutstandingAjaxCalls($session);
+	}
+
+	/**
+	 *
+	 * @throws ElementNotFoundException
+	 * @return GroupList
+	 */
+	private function getGroupListElement() {
+		$groupListElement = $this->findById($this->groupListId);
+		if (is_null($groupListElement)) {
+			throw new ElementNotFoundException(
+				__METHOD__ .
+				" id $this->groupListId " .
+				"could not find group list element"
+			);
+		}
+
+		/**
+		 *
+		 * @var GroupList $groupList
+		 */
+		$groupList = $this->getPage("UserPageElement\\GroupList");
+		$groupList->setElement($groupListElement);
+		return $groupList;
+	}
+
+	/**
+	 * returns all group names as an array
+	 *
+	 * @return string[]
+	 */
+	public function getAllGroups() {
+		$groupList = $this->getGroupListElement();
+		return $groupList->namesToArray();
+	}
+
+	/**
+	 *
+	 * @param string $name
+	 * @param Session $session
+	 * @return void
+	 */
+	public function deleteGroup($name, Session $session) {
+		$groupList = $this->getGroupListElement();
+		$groupList->deleteGroup($name);
+		$this->waitForAjaxCallsToStartAndFinish($session);
 	}
 }

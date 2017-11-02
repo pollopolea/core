@@ -20,23 +20,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  *
  */
-namespace OCA\DAV\Tests\unit\Connector\Sabre;
+
+namespace OCA\DAV\Tests\unit\DAV;
+
+use OCA\DAV\DAV\FileCustomPropertiesBackend;
+use Sabre\DAV\PropFind;
+use Sabre\DAV\SimpleCollection;
 
 /**
- * Copyright (c) 2015 Vincent Petry <pvince81@owncloud.com>
- * This file is licensed under the Affero General Public License version 3 or
- * later.
- * See the COPYING-README file.
- */
-
-/**
- * Class CustomPropertiesBackend
+ * Class FileCustomPropertiesBackendTest
  *
  * @group DB
  *
- * @package OCA\DAV\Tests\unit\Connector\Sabre
+ * @package OCA\DAV\Tests\unit\DAV
  */
-class CustomPropertiesBackendTest extends \Test\TestCase {
+class FileCustomPropertiesBackendTest extends \Test\TestCase {
 
 	/**
 	 * @var \Sabre\DAV\Server
@@ -49,7 +47,7 @@ class CustomPropertiesBackendTest extends \Test\TestCase {
 	private $tree;
 
 	/**
-	 * @var \OCA\DAV\Connector\Sabre\CustomPropertiesBackend
+	 * @var FileCustomPropertiesBackend
 	 */
 	private $plugin;
 
@@ -75,7 +73,7 @@ class CustomPropertiesBackendTest extends \Test\TestCase {
 			->method('getUID')
 			->will($this->returnValue($userId));
 
-		$this->plugin = new \OCA\DAV\Connector\Sabre\CustomPropertiesBackend(
+		$this->plugin = new FileCustomPropertiesBackend(
 			$this->tree,
 			\OC::$server->getDatabaseConnection(),
 			$this->user
@@ -142,6 +140,43 @@ class CustomPropertiesBackendTest extends \Test\TestCase {
 		$this->assertEquals(200, $result['customprop2']);
 	}
 
+	
+	/**
+	 * Test getting properties when node has no fileId
+	 * Should fail gracefully with no error
+	 */
+	public function testGetPropertiesForCollection() {
+		$node = $this->getMockBuilder(SimpleCollection::class)
+			->disableOriginalConstructor()
+			->getMock();
+
+		$node->expects($this->any())
+			->method('getName')
+			->will($this->returnValue('dummypath'));
+			
+		$this->tree->expects($this->any())
+			->method('getNodeForPath')
+			->with('/dummypath')
+			->will($this->returnValue($node));
+
+		$propFind = new PropFind(
+			'/dummypath',
+			[
+				'customprop',
+				'customprop2',
+				'unsetprop',
+			],
+			0
+		);
+
+		$this->plugin->propFind(
+			'/dummypath',
+			$propFind
+		);
+
+		$this->assertNull($propFind->get('customprop'));
+	}
+
 	/**
 	 * Test that propFind on a missing file soft fails
 	 */
@@ -156,7 +191,7 @@ class CustomPropertiesBackendTest extends \Test\TestCase {
 			->with('/dummypath')
 			->will($this->throwException(new \Sabre\DAV\Exception\ServiceUnavailable()));
 
-		$propFind = new \Sabre\DAV\PropFind(
+		$propFind = new PropFind(
 			'/dummypath',
 			[
 				'customprop',
@@ -192,7 +227,7 @@ class CustomPropertiesBackendTest extends \Test\TestCase {
 
 		$this->applyDefaultProps();
 
-		$propFind = new \Sabre\DAV\PropFind(
+		$propFind = new PropFind(
 			'/dummypath',
 			[
 				'customprop',
@@ -262,13 +297,13 @@ class CustomPropertiesBackendTest extends \Test\TestCase {
 			'unsetprop',
 		];
 
-		$propFindRoot = new \Sabre\DAV\PropFind(
+		$propFindRoot = new PropFind(
 			'/dummypath',
 			$propNames,
 			1
 		);
 
-		$propFindSub = new \Sabre\DAV\PropFind(
+		$propFindSub = new PropFind(
 			'/dummypath/test.txt',
 			$propNames,
 			0

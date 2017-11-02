@@ -459,6 +459,16 @@ Feature: webdav-related-old-endpoint
 		When as "user1" gets a custom property "{http://whatever.org/ns}very-custom-prop" of file "/testcustompropshared.txt"
 		Then the response should contain a custom "{http://whatever.org/ns}very-custom-prop" property with "valueForSharetest"
 
+	Scenario: Setting custom DAV property using an old endpoint and reading it using a new endpoint
+		Given using old dav path
+		And user "user0" exists
+		And as an "user0"
+		And user "user0" uploads file "data/textfile.txt" to "/testoldnew.txt"
+		And "user0" sets property "{http://whatever.org/ns}very-custom-prop" of file "/testoldnew.txt" to "constant"
+		And using new dav path
+		When as "user0" gets a custom property "{http://whatever.org/ns}very-custom-prop" of file "/testoldnew.txt"
+		Then the response should contain a custom "{http://whatever.org/ns}very-custom-prop" property with "constant"
+
 	### Scenarios specific to old endpoint
 
 	Scenario: Upload chunked file asc
@@ -508,7 +518,6 @@ Feature: webdav-related-old-endpoint
 		And as "user1" the folder "/folderB/ONE/TWO" exists
 		And user "user1" checks id of file "/folderB/ONE"
 
-
 	Scenario: Retrieving private link
 		Given using old dav path
 		And user "user0" exists
@@ -517,4 +526,32 @@ Feature: webdav-related-old-endpoint
 		Then as "user0" gets properties of file "/somefile.txt" with
 			|{http://owncloud.org/ns}privatelink|
 		And the single response should contain a property "{http://owncloud.org/ns}privatelink" with value like "/(\/index.php\/f\/[0-9]*)/"
+
+	Scenario: Copying file to a path with extension .part should not be possible
+		Given using old dav path
+		And user "user0" exists
+		And as an "user0"
+		When user "user0" copies file "/welcome.txt" to "/welcome.part"
+		Then the HTTP status code should be "400"
+
+	Scenario: Uploading file to path with extension .part should not be possible
+		Given using old dav path
+		And user "user0" exists
+		And as an "user0"
+		And user "user0" uploads file "data/textfile.txt" to "/textfile.part"
+		Then the HTTP status code should be "400"
+
+	Scenario: Renaming a file to a path with extension .part should not be possible
+		Given using old dav path
+		And user "user0" exists
+		And as an "user0"
+		When user "user0" moves file "/welcome.txt" to "/welcome.part"
+		Then the HTTP status code should be "400"
+
+	Scenario: Creating a directory which contains .part should not be possible
+		Given using new dav path
+		And user "user0" exists
+		And as an "user0"
+		When user "user0" created a folder "/folder.with.ext.part"
+		Then the HTTP status code should be "400"
 

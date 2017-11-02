@@ -15,8 +15,6 @@ trait WebDav {
 	private $davPath = "remote.php/webdav";
 	/** @var boolean*/
 	private $usingOldDavPath = true;
-	/** @var ResponseInterface */
-	private $response;
 	/** @var ResponseInterface[] */
 	private $uploadResponses;
 	/** @var map with user as key and another map as value, which has path as key and etag as value */
@@ -835,6 +833,8 @@ trait WebDav {
 		} catch (\GuzzleHttp\Exception\ServerException $e) {
 			// 4xx and 5xx responses cause an exception
 			$this->response = $e->getResponse();
+		} catch (\GuzzleHttp\Exception\ClientException $ex) {
+			$this->response = $ex->getResponse();
 		}
 	}
 

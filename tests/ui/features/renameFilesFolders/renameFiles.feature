@@ -11,10 +11,10 @@ Feature: renameFiles
 		And the files page is reloaded
 		Then the file <to_file_name> should be listed
 		Examples:
-		|to_file_name    |
+		|to_file_name |
 		|'लोरेम।तयक्स्त? $%#&@' |
-		|'"quotes1"'     |
-		|"'quotes2'"     |
+		|'"quotes1"'  |
+		|"'quotes2'"  |
 
 	Scenario Outline: Rename a file that has special characters in its name
 		When I rename the file <from_name> to <to_name>
@@ -81,22 +81,10 @@ Feature: renameFiles
 		When I rename the file "data.zip" to one of these names
 		|lorem\txt  |
 		|\\.txt     |
-		Then notifications should be displayed with the text
-		|Could not rename "data.zip"|
-		|Could not rename "data.zip"|
-		And the file "data.zip" should be listed
-
-	Scenario: Rename a file to a forbidden name
-		When I rename the file "data.zip" to one of these names
 		|.htaccess  |
 		Then notifications should be displayed with the text
 		|Could not rename "data.zip"|
-		And the file "data.zip" should be listed
-
-	Scenario: Rename a file to a forbidden name
-		When I rename the file "data.zip" to one of these names
-		|.htaccess  |
-		Then notifications should be displayed with the text
+		|Could not rename "data.zip"|
 		|Could not rename "data.zip"|
 		And the file "data.zip" should be listed
 

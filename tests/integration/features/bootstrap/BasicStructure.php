@@ -2,6 +2,8 @@
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Message\ResponseInterface;
+use Behat\Gherkin\Node\PyStringNode;
+use Behat\Testwork\Hook\Scope\BeforeSuiteScope;
 
 require __DIR__ . '/../../../../lib/composer/autoload.php';
 
@@ -17,6 +19,7 @@ trait BasicStructure {
 	use Tags;
 	use Trashbin;
 	use WebDav;
+	use CommandLine;
 
 	/** @var string */
 	private $currentUser = '';
@@ -39,7 +42,7 @@ trait BasicStructure {
 	/** @var string */
 	private $requestToken;
 
-	public function __construct($baseUrl, $admin, $regular_user_password, $mailhog_url) {
+	public function __construct($baseUrl, $admin, $regular_user_password, $mailhog_url, $oc_path) {
 
 		// Initialize your context here
 		$this->baseUrl = $baseUrl;
@@ -50,6 +53,7 @@ trait BasicStructure {
 		$this->remoteBaseUrl = $this->baseUrl;
 		$this->currentServer = 'LOCAL';
 		$this->cookieJar = new \GuzzleHttp\Cookie\CookieJar();
+		$this->ocPath = $oc_path;
 
 		// in case of CI deployment we take the server url from the environment
 		$testServerUrl = getenv('TEST_SERVER_URL');
@@ -122,6 +126,45 @@ trait BasicStructure {
 	 */
 	public function getOCSResponse($response) {
 		return $response->xml()->meta[0]->statuscode;
+	}
+
+	/**
+	 * Parses the xml answer to get the requested key and sub-key
+	 *
+	 * @param ResponseInterface $response
+	 * @param string $key1
+	 * @param string $key2
+	 * @return string
+	 */
+	public function getXMLKey1Key2Value($response, $key1, $key2) {
+		return $response->xml()->$key1->$key2;
+	}
+
+	/**
+	 * Parses the xml answer to get the requested key sequence
+	 *
+	 * @param ResponseInterface $response
+	 * @param string $key1
+	 * @param string $key2
+	 * @param string $key3
+	 * @return string
+	 */
+	public function getXMLKey1Key2Key3Value($response, $key1, $key2, $key3) {
+		return $response->xml()->$key1->$key2->$key3;
+	}
+
+	/**
+	 * Parses the xml answer to get the requested attribute value
+	 *
+	 * @param ResponseInterface $response
+	 * @param string $key1
+	 * @param string $key2
+	 * @param string $key3
+	 * @param string $attribute
+	 * @return string
+	 */
+	public function getXMLKey1Key2Key3AttributeValue($response, $key1, $key2, $key3, $attribute) {
+		return (string) $response->xml()->$key1->$key2->$key3->attributes()->$attribute;
 	}
 
 	/**
@@ -222,6 +265,49 @@ trait BasicStructure {
 	 */
 	public function theHTTPStatusCodeShouldBe($statusCode) {
 		PHPUnit_Framework_Assert::assertEquals($statusCode, $this->response->getStatusCode());
+	}
+
+	/**
+	 * @Then /^the XML "([^"]*)" "([^"]*)" value should be "([^"]*)"$/
+	 * @param string $key1
+	 * @param string $key2
+	 * @param string $idText
+	 */
+	public function theXMLKey1Key2ValueShouldBe($key1, $key2, $idText) {
+		PHPUnit_Framework_Assert::assertEquals(
+			$idText,
+			$this->getXMLKey1Key2Value($this->response, $key1, $key2)
+		);
+	}
+
+	/**
+	 * @Then /^the XML "([^"]*)" "([^"]*)" "([^"]*)" value should be "([^"]*)"$/
+	 * @param string $key1
+	 * @param string $key2
+	 * @param string $key3
+	 * @param string $idText
+	 */
+	public function theXMLKey1Key2Key3ValueShouldBe($key1, $key2, $key3, $idText) {
+		PHPUnit_Framework_Assert::assertEquals(
+			$idText,
+			$this->getXMLKey1Key2Key3Value($this->response, $key1, $key2, $key3)
+		);
+	}
+
+	/**
+	 * @Then /^the XML "([^"]*)" "([^"]*)" "([^"]*)" "([^"]*)" attribute value should be a valid version string$/
+	 * @param string $key1
+	 * @param string $key2
+	 * @param string $key3
+	 * @param string $attribute
+	 * @param string $idText
+	 */
+	public function theXMLKey1Key2AttributeValueShouldBe($key1, $key2, $key3, $attribute) {
+		$value = $this->getXMLKey1Key2Key3AttributeValue($this->response, $key1, $key2, $key3, $attribute);
+		PHPUnit_Framework_Assert::assertTrue(
+			version_compare($value, '0.0.1') >= 0,
+			'attribute ' . $attribute . ' value ' . $value . ' is not a valid version string'
+		);
 	}
 
 	/**
@@ -380,6 +466,51 @@ trait BasicStructure {
 	}
 
 	/**
+	 * @When requesting status.php
+	 */
+	public function getStatusPhp(){
+		$fullUrl = $this->baseUrlWithoutOCSAppendix() . "status.php";
+		$client = new Client();
+		$options = [];
+		$options['auth'] = $this->adminUser;
+		try {
+			$this->response = $client->send($client->createRequest('GET', $fullUrl, $options));
+		} catch (\GuzzleHttp\Exception\ClientException $ex) {
+			$this->response = $ex->getResponse();
+		}
+	}
+
+	/**
+	 * @Then the json responded should match with
+	 */
+	public function jsonRespondedShouldMatch(PyStringNode $jsonExpected) {
+		$jsonExpectedEncoded = json_encode($jsonExpected->getRaw());
+		$jsonRespondedEncoded = json_encode((string) $this->response->getBody());
+		PHPUnit\Framework\Assert::assertEquals($jsonExpectedEncoded, $jsonRespondedEncoded);
+	}
+
+	/**
+	 * @Then the status.php with versions fixed responded should match with
+	 */
+	public function statusPhpRespondedShouldMatch(PyStringNode $jsonExpected) {
+		$jsonExpectedDecoded = json_decode($jsonExpected->getRaw(), true);
+		$jsonRespondedEncoded = json_encode(json_decode($this->response->getBody(), true));
+		if ($this->runOcc(['status']) === 0) {
+			$output = explode("- ", $this->lastStdOut);
+			$version = explode(": ", $output[2]);
+			PHPUnit_Framework_Assert::assertEquals("version", $version[0]);
+			$versionString = explode(": ", $output[3]);
+			PHPUnit_Framework_Assert::assertEquals("versionstring", $versionString[0]);
+			$jsonExpectedDecoded['version'] = trim($version[1]);
+			$jsonExpectedDecoded['versionstring'] = trim($versionString[1]);
+			$jsonExpectedEncoded = json_encode($jsonExpectedDecoded);
+		} else {
+			PHPUnit_Framework_Assert::fail('Cannot get version variables from occ');
+		}
+		PHPUnit\Framework\Assert::assertEquals($jsonExpectedEncoded, $jsonRespondedEncoded);
+	}
+
+	/**
 	 * @BeforeScenario @local_storage
 	 */
 	public static function removeFilesFromLocalStorageBefore() {
@@ -406,11 +537,12 @@ trait BasicStructure {
 	/**
 	 * @BeforeSuite
 	 */
-	public static function useBigFileIDs() {
+	public static function useBigFileIDs(BeforeSuiteScope $scope) {
 		$fullUrl = getenv('TEST_SERVER_URL') . "/v1.php/apps/testing/api/v1/increasefileid";
 		$client = new Client();
 		$options = [];
-		$options['auth'] = ['admin','admin'];
+		$adminCredentials = $scope->getSuite()->getSettings()['contexts'][0][__CLASS__]['admin'];
+		$options['auth'] = $adminCredentials;
 		$client->send($client->createRequest('post', $fullUrl, $options));
 	}
 }
