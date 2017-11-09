@@ -116,7 +116,7 @@ pipeline:
 
 services:
   mariadb:
-    image: mariadb:10.3
+    image: mariadb:10.2
     environment:
       - MYSQL_USER=owncloud
       - MYSQL_PASSWORD=owncloud
@@ -127,7 +127,7 @@ services:
         DB_TYPE: mariadb
 
   mysql:
-    image: mysql:5.7
+    image: mysql:5.5
     environment:
       - MYSQL_USER=owncloud
       - MYSQL_PASSWORD=owncloud
@@ -137,8 +137,19 @@ services:
       matrix:
         DB_TYPE: mysql
 
+  mysqlmb4:
+    image: mysql:5.7
+    environment:
+      - MYSQL_USER=owncloud
+      - MYSQL_PASSWORD=owncloud
+      - MYSQL_DATABASE=owncloud
+      - MYSQL_ROOT_PASSWORD=owncloud
+    when:
+      matrix:
+        DB_TYPE: mysqlmb4
+
   postgres:
-    image: postgres:9.6
+    image: postgres:9.4
     environment:
       - POSTGRES_USER=owncloud
       - POSTGRES_PASSWORD=owncloud
@@ -169,9 +180,9 @@ matrix:
     #- PHP_VERSION: 5.6
     #  DB_TYPE: mysql
     #  TEST_SUITE: phpunit
-    #- PHP_VERSION: 5.6
-    #  DB_TYPE: postgres
-    #  TEST_SUITE: phpunit
+    - PHP_VERSION: 5.6
+      DB_TYPE: postgres
+      TEST_SUITE: phpunit
     # - PHP_VERSION: 5.6
     #   DB_TYPE: oracle
     #   TEST_SUITE: phpunit
@@ -183,9 +194,12 @@ matrix:
     #- PHP_VERSION: 7.0
     #  DB_TYPE: mariadb
     #  TEST_SUITE: phpunit
-    #- PHP_VERSION: 7.0
-    #  DB_TYPE: mysql
-    #  TEST_SUITE: phpunit
+    - PHP_VERSION: 7.0
+      DB_TYPE: mysql
+      TEST_SUITE: phpunit
+    - PHP_VERSION: 7.0
+      DB_TYPE: mysqlmb4
+      TEST_SUITE: phpunit
     #- PHP_VERSION: 7.0
     #  DB_TYPE: postgres
     #  TEST_SUITE: phpunit
@@ -235,4 +249,8 @@ matrix:
     # Code Coverage Computation
     - PHP_VERSION: 7.1
       DB_TYPE: sqlite
+      TEST_SUITE: coverage
+
+    - PHP_VERSION: 7.1
+      DB_TYPE: mariadb
       TEST_SUITE: coverage

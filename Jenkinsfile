@@ -15,16 +15,6 @@ timestampedNode('SLAVE') {
         make dist
         '''
 
-    stage 'phpunit/7.0/mysqlmb4'
-        executeAndReport('tests/autotest-results-mysqlmb4.xml') {
-	        sh '''
-        	export NOCOVERAGE=1
-        	unset USEDOCKER
-        	phpenv local 7.0
-		make test-php TEST_DATABASE=mysqlmb4
-        	'''
-	}
-
     stage 'PHPUnit 7.0/sqlite'
         executeAndReport('tests/autotest-results-sqlite.xml') {
             sh '''
@@ -32,26 +22,6 @@ timestampedNode('SLAVE') {
             unset USEDOCKER
             phpenv local 7.0
             make test-php TEST_DATABASE=sqlite
-            '''
-        }
-
-    stage 'PHPUnit 7.0/mysql'
-        executeAndReport('tests/autotest-results-mysql.xml') {
-            sh '''
-            export NOCOVERAGE=1
-            unset USEDOCKER
-            phpenv local 7.0
-            make test-php TEST_DATABASE=mysql
-            '''
-        }
-
-    stage 'PHPUnit 5.6/pgsql'
-        executeAndReport('tests/autotest-results-pgsql.xml') {
-            sh '''
-            export NOCOVERAGE=1
-            unset USEDOCKER
-            phpenv local 5.6
-            make test-php TEST_DATABASE=pgsql
             '''
         }
 

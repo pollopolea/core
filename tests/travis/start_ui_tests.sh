@@ -23,6 +23,18 @@ verlt() {
 OLD_LANG=$LANG
 export LANG=C
 
+OCC=./occ
+
+#enable testing app
+PREVIOUS_TESTING_APP_STATUS=$($OCC --no-warnings app:list "^testing$")
+if [[ "$PREVIOUS_TESTING_APP_STATUS" =~ ^Disabled: ]]
+then
+	$OCC app:enable testing
+	TESTING_ENABLED_BY_SCRIPT=true;
+else
+	TESTING_ENABLED_BY_SCRIPT=false;
+fi
+
 # Look for command line options for:
 # -c or --config - specify a behat.yml to use
 # --feature - specify a single feature to run
@@ -80,7 +92,7 @@ BEHAT_TAG_OPTION="--tags"
 
 #we need to skip some tests in certain browsers
 #and also skip tests if tags were given in the call of this script
-if [ "$BROWSER" == "internet explorer" ] || ([ "$BROWSER" == "firefox" ] && verlt "47.0" "$BROWSER_VERSION")
+if [ "$BROWSER" == "internet explorer" ] || [ "$BROWSER" == "MicrosoftEdge" ] || ([ "$BROWSER" == "firefox" ] && verlt "47.0" "$BROWSER_VERSION")
 then
 	BROWSER_IN_CAPITALS=${BROWSER//[[:blank:]]/}
 	BROWSER_IN_CAPITALS=${BROWSER_IN_CAPITALS^^}
@@ -182,7 +194,6 @@ fi
 EXTRA_CAPABILITIES=$EXTRA_CAPABILITIES'"maxDuration":"3600"'
 
 #Set up personalized skeleton
-OCC=./occ
 PREVIOUS_SKELETON_DIR=$($OCC --no-warnings config:system:get skeletondirectory)
 $OCC config:system:set skeletondirectory --value="$(pwd)/tests/ui/skeleton" >/dev/null
 
@@ -260,12 +271,9 @@ else
 	$OCC config:system:set skeletondirectory --value="$PREVIOUS_SKELETON_DIR" >/dev/null
 fi
 
-if [ ! -z "$SAUCE_USERNAME" ] && [ ! -z "$SAUCE_ACCESS_KEY" ] && [ -e /tmp/saucelabs_sessionid ]
-then
-	SAUCELABS_SESSIONID=`cat /tmp/saucelabs_sessionid`
-	curl -X PUT -s -d "{\"passed\": $PASSED}" -u $SAUCE_USERNAME:$SAUCE_ACCESS_KEY https://saucelabs.com/rest/v1/$SAUCE_USERNAME/jobs/$SAUCELABS_SESSIONID 2>&1 | tee -a $TEST_LOG_FILE 
-
-	printf "\n${RED}SAUCELABS RESULTS:${BLUE} https://saucelabs.com/jobs/$SAUCELABS_SESSIONID\n${NC}" | tee -a $TEST_LOG_FILE
+# Put back state of the testing app
+if test "$TESTING_ENABLED_BY_SCRIPT" = true; then
+	$OCC app:disable testing
 fi
 
 #upload log file for later analysis

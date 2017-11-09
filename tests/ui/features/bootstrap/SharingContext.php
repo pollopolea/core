@@ -26,6 +26,7 @@ use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Gherkin\Node\TableNode;
 use Page\FilesPage;
 use SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException;
+use TestHelpers\AppConfigHelper;
 
 require_once 'bootstrap.php';
 
@@ -40,6 +41,10 @@ class SharingContext extends RawMinkContext implements Context {
 	private $regularUserNames;
 	private $regularGroupName;
 	private $regularGroupNames;
+	/**
+	 * 
+	 * @var FeatureContext
+	 */
 	private $featureContext;
 
 	/**
@@ -56,18 +61,31 @@ class SharingContext extends RawMinkContext implements Context {
 	 * @param string $folder
 	 * @param string $remote
 	 * @param string $user
+	 * @param int $maxRetries
+	 * @param boolean $quiet
 	 * @return void
 	 */
-	public function theFileFolderIsSharedWithTheUser($folder, $remote, $user) {
+	public function theFileFolderIsSharedWithTheUser(
+		$folder, $remote, $user, $maxRetries = 5, $quiet = false
+	) {
 		$this->filesPage->waitTillPageIsloaded($this->getSession());
+		try {
+			$this->filesPage->closeSharingDialog();
+		} catch (Exception $e) {
+			//we don't care
+		}
 		$this->sharingDialog = $this->filesPage->openSharingDialog(
 			$folder, $this->getSession()
 		);
 		$user = $this->featureContext->substituteInLineCodes($user);
 		if ($remote === "remote") {
-			$this->sharingDialog->shareWithRemoteUser($user, $this->getSession());
+			$this->sharingDialog->shareWithRemoteUser(
+				$user, $this->getSession(), $maxRetries, $quiet
+			);
 		} else {
-			$this->sharingDialog->shareWithUser($user, $this->getSession());
+			$this->sharingDialog->shareWithUser(
+				$user, $this->getSession(), $maxRetries, $quiet
+			);
 		}
 		$this->iCloseTheShareDialog();
 	}
@@ -80,6 +98,11 @@ class SharingContext extends RawMinkContext implements Context {
 	 */
 	public function theFileFolderIsSharedWithTheGroup($folder, $group) {
 		$this->filesPage->waitTillPageIsloaded($this->getSession());
+		try {
+			$this->filesPage->closeSharingDialog();
+		} catch (Exception $e) {
+			//we don't care
+		}
 		$this->sharingDialog = $this->filesPage->openSharingDialog(
 			$folder, $this->getSession()
 		);
@@ -255,7 +278,7 @@ class SharingContext extends RawMinkContext implements Context {
 		$row = $this->filesPage->findFileRowByName($itemName, $this->getSession());
 		$sharingBtn = $row->findSharingButton();
 		PHPUnit_Framework_Assert::assertSame(
-			$sharerName, $sharingBtn->getText()
+			$sharerName, $this->filesPage->getTrimmedText($sharingBtn)
 		);
 		$sharingDialog = $this->filesPage->openSharingDialog(
 			$itemName, $this->getSession()
@@ -282,18 +305,38 @@ class SharingContext extends RawMinkContext implements Context {
 	}
 
 	/**
-	 * @Then it should not be possible to share the file/folder :name
-	 * @param string $name
+	 * @Then /^it should not be possible to share the (?:file|folder) "([^"]*)"(?: with "([^"]*)")?$/
+	 * @param string $fileName
 	 * @return void
 	 */
-	public function itShouldNotBePossibleToShare($name) {
+	public function itShouldNotBePossibleToShare($fileName, $shareWith = null) {
+		$sharingWasPossible = false;
 		try {
-			$this->theFileFolderIsSharedWithTheUser($name, null, null);
+			$this->theFileFolderIsSharedWithTheUser($fileName, null, $shareWith, 2, true);
+			$sharingWasPossible = true;
 		} catch (ElementNotFoundException $e) {
-			PHPUnit_Framework_Assert::assertContains(
+			$possibleMessages = [
 				'could not find share-with-field',
-				$e->getMessage()
-			);
+				'could not find sharing button in fileRow',
+				'could not share with \'' . $shareWith . '\''
+			];
+			foreach ($possibleMessages as $message) {
+				$foundMessage = strpos($e->getMessage(), $message);
+				if ($foundMessage !== false) {
+					break;
+				}
+			}
+			if ($foundMessage === false) {
+				throw new Exception(
+					'exception message has to contain "could not find share-with-field",' .
+					' "could not find sharing button in fileRow" or' .
+					' "could not share with \'...\'"but was: "' .
+					$e->getMessage() . '"'
+				);
+			}
+		}
+		if ($sharingWasPossible === true) {
+			throw new Exception("It was possible to share the file");
 		}
 	}
 
@@ -313,5 +356,100 @@ class SharingContext extends RawMinkContext implements Context {
 		$this->regularUserName = $this->featureContext->getRegularUserName();
 		$this->regularGroupNames = $this->featureContext->getRegularGroupNames();
 		$this->regularGroupName = $this->featureContext->getRegularGroupName();
+		$this->setupSharingConfigs();
 	}
+	
+	/**
+	 * @return void
+	 */
+	protected function setupSharingConfigs() {
+		$settings = [
+			[
+				'capabilitiesApp' => 'files_sharing',
+				'capabilitiesParameter' => 'api_enabled',
+				'testingApp' => 'core',
+				'testingParameter' => 'shareapi_enabled',
+				'testingState' => true
+			],
+			[
+				'capabilitiesApp' => 'files_sharing',
+				'capabilitiesParameter' => 'public@@@enabled',
+				'testingApp' => 'core',
+				'testingParameter' => 'shareapi_allow_links',
+				'testingState' => true
+			],
+			[
+				'capabilitiesApp' => 'files_sharing',
+				'capabilitiesParameter' => 'public@@@upload',
+				'testingApp' => 'core',
+				'testingParameter' => 'shareapi_allow_public_upload',
+				'testingState' => true
+			],
+			[
+				'capabilitiesApp' => 'files_sharing',
+				'capabilitiesParameter' => 'group_sharing',
+				'testingApp' => 'core',
+				'testingParameter' => 'shareapi_allow_group_sharing',
+				'testingState' => true
+			],
+			[
+				'capabilitiesApp' => 'files_sharing',
+				'capabilitiesParameter' => 'share_with_group_members_only',
+				'testingApp' => 'core',
+				'testingParameter' => 'shareapi_only_share_with_group_members',
+				'testingState' => false
+			],
+			[
+				'capabilitiesApp' => 'files_sharing',
+				'capabilitiesParameter' => 'share_with_membership_groups_only',
+				'testingApp' => 'core',
+				'testingParameter' => 'shareapi_only_share_with_membership_groups',
+				'testingState' => false
+			],
+			[
+				'capabilitiesApp' => 'files_sharing',
+				'capabilitiesParameter' => 'user_enumeration@@@enabled',
+				'testingApp' => 'core',
+				'testingParameter' => 'shareapi_allow_share_dialog_user_enumeration',
+				'testingState' => true
+			],
+			[
+				'capabilitiesApp' => 'files_sharing',
+				'capabilitiesParameter' => 'user_enumeration@@@group_members_only',
+				'testingApp' => 'core',
+				'testingParameter' => 'shareapi_share_dialog_user_enumeration_group_members',
+				'testingState' => false
+			],
+			[
+				'capabilitiesApp' => 'federation',
+				'capabilitiesParameter' => 'outgoing',
+				'testingApp' => 'files_sharing',
+				'testingParameter' => 'outgoing_server2server_share_enabled',
+				'testingState' => true
+			],
+			[
+				'capabilitiesApp' => 'federation',
+				'capabilitiesParameter' => 'incoming',
+				'testingApp' => 'files_sharing',
+				'testingParameter' => 'incoming_server2server_share_enabled',
+				'testingState' => true
+			]
+		];
+
+		foreach ($settings as $setting) {
+			$change = AppConfigHelper::setCapability(
+				$this->getMinkParameter('base_url'),
+				"admin",
+				$this->featureContext->getUserPassword("admin"),
+				$setting['capabilitiesApp'],
+				$setting['capabilitiesParameter'],
+				$setting['testingApp'],
+				$setting['testingParameter'],
+				$setting['testingState'],
+				$this->featureContext->getSavedCapabilitiesXml()
+			);
+			$this->featureContext->addToSavedCapabilitiesChanges($change);
+		}
+	}
+
 }

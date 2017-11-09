@@ -372,6 +372,19 @@
 			return share.share_with_displayname;
 		},
 
+		/**
+		 * @param shareIndex
+		 * @returns {string}
+		 */
+		getShareWithAdditionalInfo: function(shareIndex) {
+			/** @type OC.Share.Types.ShareInfo **/
+			var share = this.get('shares')[shareIndex];
+			if(!_.isObject(share)) {
+				throw "Unknown Share";
+			}
+			return share.share_with_additional_info;
+		},
+
 		getShareType: function(shareIndex) {
 			/** @type OC.Share.Types.ShareInfo **/
 			var share = this.get('shares')[shareIndex];
@@ -426,12 +439,6 @@
 					shareType: shareType,
 					itemSource: itemSource,
 					itemType: itemType
-				},
-				function(result) {
-					if (result.status !== 'success') {
-						// FIXME: a model should not show dialogs
-						OC.dialogs.alert(t('core', result.data.message), t('core', 'Warning'));
-					}
 				}
 			);
 		},

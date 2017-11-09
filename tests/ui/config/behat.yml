@@ -33,9 +33,19 @@ default:
         - UsersContext:
         - FilesContext:
 
-    renameFilesFolders:
+    renameFiles:
       paths:
-        - %paths.base%/../features/renameFilesFolders
+        - %paths.base%/../features/renameFiles
+      context: *common_suite_context
+      contexts:
+        - FeatureContext:
+        - LoginContext:
+        - UsersContext:
+        - FilesContext:
+
+    renameFolders:
+      paths:
+        - %paths.base%/../features/renameFolders
       context: *common_suite_context
       contexts:
         - FeatureContext:
@@ -56,6 +66,17 @@ default:
     sharing:
       paths:
         - %paths.base%/../features/sharing
+      context: *common_suite_context
+      contexts:
+        - FeatureContext:
+        - LoginContext:
+        - UsersContext:
+        - FilesContext:
+        - SharingContext:
+
+    restrictSharing:
+      paths:
+        - %paths.base%/../features/restrictSharing
       context: *common_suite_context
       contexts:
         - FeatureContext:

@@ -24,6 +24,10 @@ else
       wait-for-it mysql:3306
       DB=mysql
       ;;
+    mysqlmb4)
+      wait-for-it mysqlmb4:3306
+      DB=mysql
+      ;;
     postgres)
       wait-for-it postgres:5432
       DB=pgsql
@@ -44,8 +48,8 @@ fi
 ./occ app:enable federation
 ./occ app:enable federatedfilesharing
 
-if [[ "${DB_TYPE}" == "none" ]]; then
-  GROUP="--exclude-group DB"
+if [[ "${DB_TYPE}" == "none" || "${DB_TYPE}" == "sqlite" ]]; then
+  GROUP=""
 else
   GROUP="--group DB"
 fi

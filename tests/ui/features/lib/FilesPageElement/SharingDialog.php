@@ -27,6 +27,7 @@ use Behat\Mink\Element\NodeElement;
 use Page\OwncloudPage;
 use SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException;
 use Behat\Mink\Session;
+use WebDriver\Exception\UnknownError;
 
 /**
  * The Sharing Dialog
@@ -142,7 +143,7 @@ class SharingDialog extends OwncloudPage {
 			$this->autocompleteItemsTextXpath
 		);
 		foreach ($itemElements as $item) {
-			array_push($itemsArray, $item->getText());
+			array_push($itemsArray, $this->getTrimmedText($item));
 		}
 		return $itemsArray;
 	}
@@ -152,11 +153,13 @@ class SharingDialog extends OwncloudPage {
 	 * @param string $nameToType what to type in the share with field
 	 * @param string $nameToMatch what exact item to select
 	 * @param Session $session
+	 * @param int $maxRetries
+	 * @param boolean $quiet
 	 * @throws ElementNotFoundException
 	 * @return void
 	 */
 	private function shareWithUserOrGroup(
-		$nameToType, $nameToMatch, Session $session, $maxRetries = 5
+		$nameToType, $nameToMatch, Session $session, $maxRetries = 5, $quiet = false
 	) {
 		for ($retryCounter = 0; $retryCounter < $maxRetries; $retryCounter++) {
 			$autocompleteNodeElement = $this->fillShareWithField($nameToType, $session);
@@ -166,7 +169,7 @@ class SharingDialog extends OwncloudPage {
 	
 			$userFound = false;
 			foreach ($userElements as $user) {
-				if ($user->getText() === $nameToMatch) {
+				if ($this->getTrimmedText($user) === $nameToMatch) {
 					$user->click();
 					$this->waitForAjaxCallsToStartAndFinish($session);
 					$userFound = true;
@@ -175,11 +178,11 @@ class SharingDialog extends OwncloudPage {
 			}
 			if ($userFound === true) {
 				break;
-			} else {
+			} elseif ($quiet === false) {
 				error_log("Error while sharing file");
 			}
 		}
-		if ($retryCounter > 0) {
+		if ($retryCounter > 0 && $quiet === false) {
 			$message = "INFORMATION: retried to share file " . $retryCounter . " times";
 			echo $message;
 			error_log($message);
@@ -195,23 +198,16 @@ class SharingDialog extends OwncloudPage {
 	 *
 	 * @param string $name
 	 * @param Session $session
+	 * @param int $maxRetries
+	 * @param boolean $quiet
 	 * @throws ElementNotFoundException
 	 * @return void
 	 */
-	public function shareWithUser($name, Session $session) {
-		$this->shareWithUserOrGroup($name, $name, $session);
-	}
-
-	/**
-	 *
-	 * @param string $name
-	 * @param Session $session
-	 * @throws ElementNotFoundException
-	 * @return void
-	 */
-	public function shareWithRemoteUser($name, Session $session) {
+	public function shareWithUser(
+		$name, Session $session, $maxRetries = 5, $quiet = false
+	) {
 		$this->shareWithUserOrGroup(
-			$name, $name . $this->suffixToIdentifyRemoteUsers, $session
+			$name, $name, $session, $maxRetries, $quiet
 		);
 	}
 
@@ -219,12 +215,35 @@ class SharingDialog extends OwncloudPage {
 	 *
 	 * @param string $name
 	 * @param Session $session
+	 * @param int $maxRetries
+	 * @param boolean $quiet
 	 * @throws ElementNotFoundException
 	 * @return void
 	 */
-	public function shareWithGroup($name, Session $session) {
+	public function shareWithRemoteUser(
+		$name, Session $session, $maxRetries = 5, $quiet = false
+	) {
 		$this->shareWithUserOrGroup(
-			$name, $name . $this->suffixToIdentifyGroups, $session
+			$name, $name . $this->suffixToIdentifyRemoteUsers,
+			$session, $maxRetries, $quiet
+		);
+	}
+
+	/**
+	 *
+	 * @param string $name
+	 * @param Session $session
+	 * @param int $maxRetries
+	 * @param boolean $quiet
+	 * @throws ElementNotFoundException
+	 * @return void
+	 */
+	public function shareWithGroup(
+		$name, Session $session, $maxRetries = 5, $quiet = false
+	) {
+		$this->shareWithUserOrGroup(
+			$name, $name . $this->suffixToIdentifyGroups,
+			$session, $maxRetries, $quiet
 		);
 	}
 
@@ -322,7 +341,7 @@ class SharingDialog extends OwncloudPage {
 				"could not find share-with-tooltip"
 			);
 		}
-		return $shareWithTooltip->getText();
+		return $this->getTrimmedText($shareWithTooltip);
 	}
 
 	/**
@@ -353,7 +372,7 @@ class SharingDialog extends OwncloudPage {
 	 */
 	public function getSharedWithGroupAndSharerName() {
 		if (is_null($this->sharedWithGroupAndSharerName)) {
-			$text = $this->findSharerInformationItem()->getText();
+			$text = $this->getTrimmedText($this->findSharerInformationItem());
 			if (preg_match("/" . $this->sharedWithAndByRegEx . "/", $text, $matches)) {
 				$this->sharedWithGroupAndSharerName = [
 					"sharedWithGroup" => $matches [1],
@@ -440,6 +459,22 @@ class SharingDialog extends OwncloudPage {
 				"could not find share-dialog-close-button"
 			);
 		}
-		$shareDialogCloseButton->click();
+
+		try {
+			$shareDialogCloseButton->click();
+		} catch (UnknownError $e) {
+			// Edge often throws UnknownError 'Invalid Argument' when trying to
+			// click the close button, even though the button was found above.
+			// Ignore it for now. Many tests could keep working without having
+			// closed the share dialog.
+			// TODO: Edge - if it keeps happening then find out why.
+			error_log(
+				__METHOD__
+				. " UnknownError while doing shareDialogCloseButton->click()"
+				. "\n-------------------------\n"
+				. $e->getMessage()
+				. "\n-------------------------\n"
+			);
+		}
 	}
 }
