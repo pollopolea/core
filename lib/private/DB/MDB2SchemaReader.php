@@ -271,6 +271,7 @@ class MDB2SchemaReader {
 			switch ($child->getName()) {
 				case 'name':
 					$name = (string)$child;
+					$name = str_replace('*dbprefix*', $this->DBTABLEPREFIX, $name);
 					break;
 				case 'primary':
 					$primary = $this->asBool($child);

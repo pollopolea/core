@@ -56,7 +56,7 @@
 				<comments>cardDav sync token</comments>
 			</field>
 			<index>
-				<name>url_hash</name>
+				<name>*dbprefix*url_hash</name>
 				<unique>true</unique>
 				<field>
 					<name>url_hash</name>

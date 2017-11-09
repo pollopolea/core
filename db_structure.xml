@@ -41,7 +41,7 @@
 			</field>
 
 			<index>
-				<name>appconfig_appid_key_index</name>
+				<name>*dbprefix*appconfig_appid_key_index</name>
 				<primary>true</primary>
 				<unique>true</unique>
 				<field>
@@ -54,14 +54,14 @@
 				</field>
 			</index>
 			<index>
-				<name>appconfig_config_key_index</name>
+		 		<name>*dbprefix*appconfig_config_key_index</name>
 				<field>
 					<name>configkey</name>
 					<sorting>ascending</sorting>
 				</field>
 			</index>
 			<index>
-				<name>appconfig_appid_key</name>
+				<name>*dbprefix*appconfig_appid_key</name>
 				<field>
 					<name>appid</name>
 					<sorting>ascending</sorting>
@@ -115,7 +115,7 @@
 			</field>
 
 			<index>
-				<name>storages_id_index</name>
+				<name>*dbprefix*storages_id_index</name>
 				<unique>true</unique>
 				<field>
 					<name>id</name>
@@ -172,7 +172,7 @@
 			</field>
 
 			<index>
-				<name>mounts_user_index</name>
+				<name>*dbprefix*mounts_user_index</name>
 				<unique>false</unique>
 				<field>
 					<name>user_id</name>
@@ -181,7 +181,7 @@
 			</index>
 
 			<index>
-				<name>mounts_storage_index</name>
+				<name>*dbprefix*mounts_storage_index</name>
 				<unique>false</unique>
 				<field>
 					<name>storage_id</name>
@@ -190,7 +190,7 @@
 			</index>
 
 			<index>
-				<name>mounts_root_index</name>
+				<name>*dbprefix*mounts_root_index</name>
 				<unique>false</unique>
 				<field>
 					<name>root_id</name>
@@ -199,7 +199,7 @@
 			</index>
 
 			<index>
-				<name>mounts_user_root_index</name>
+				<name>*dbprefix*mounts_user_root_index</name>
 				<unique>true</unique>
 				<field>
 					<name>user_id</name>
@@ -245,7 +245,7 @@
 			</field>
 
 			<index>
-				<name>mimetype_id_index</name>
+				<name>*dbprefix*mimetype_id_index</name>
 				<unique>true</unique>
 				<field>
 					<name>mimetype</name>
@@ -408,7 +408,7 @@
 
 
             <index>
-				<name>fs_storage_path_hash</name>
+				<name>*dbprefix*fs_storage_path_hash</name>
 				<unique>true</unique>
 				<field>
 					<name>storage</name>
@@ -421,7 +421,7 @@
 			</index>
 
 			<index>
-				<name>fs_parent_name_hash</name>
+				<name>*dbprefix*fs_parent_name_hash</name>
 				<field>
 					<name>parent</name>
 					<sorting>ascending</sorting>
@@ -433,7 +433,7 @@
 			</index>
 
 			<index>
-				<name>fs_storage_mimetype</name>
+				<name>*dbprefix*fs_storage_mimetype</name>
 				<field>
 					<name>storage</name>
 					<sorting>ascending</sorting>
@@ -445,7 +445,7 @@
 			</index>
 
 			<index>
-				<name>fs_storage_mimepart</name>
+				<name>*dbprefix*fs_storage_mimepart</name>
 				<field>
 					<name>storage</name>
 					<sorting>ascending</sorting>
@@ -457,7 +457,7 @@
 			</index>
 
 			<index>
-				<name>fs_storage_size</name>
+				<name>*dbprefix*fs_storage_size</name>
 				<field>
 					<name>storage</name>
 					<sorting>ascending</sorting>
@@ -505,7 +505,7 @@
 			</field>
 
 			<index>
-				<name>gu_gid_uid_index</name>
+				<name>*dbprefix*gu_gid_uid_index</name>
 				<primary>true</primary>
 				<unique>true</unique>
 				<field>
@@ -519,7 +519,7 @@
 			</index>
 
 			<index>
-				<name>gu_uid_index</name>
+				<name>*dbprefix*gu_uid_index</name>
 				<field>
 					<name>uid</name>
 					<sorting>ascending</sorting>
@@ -562,7 +562,7 @@
 				<length>64</length>
 			</field>
 			<index>
-				<name>group_admin_uid</name>
+				<name>*dbprefix*group_admin_uid</name>
 				<field>
 					<name>uid</name>
 					<sorting>ascending</sorting>
@@ -570,7 +570,7 @@
 			</index>
 
 			<index>
-				<name>ga_gid_uid_index</name>
+				<name>*dbprefix*ga_gid_uid_index</name>
 				<primary>true</primary>
 				<unique>true</unique>
 				<field>
@@ -605,7 +605,7 @@
 			</field>
 
 			<index>
-				<name>groups_pKey</name>
+				<name>*dbprefix*groups_pKey</name>
 				<primary>true</primary>
 				<field>
 					<name>gid</name>
@@ -660,7 +660,7 @@
 			</field>
 
 			<index>
-				<name>pref_userid_appid_key_index</name>
+				<name>*dbprefix*pref_userid_appid_key_index</name>
 				<primary>true</primary>
 				<unique>true</unique>
 				<field>
@@ -742,7 +742,7 @@
 			</field>
 
 			<index>
-				<name>job_class_index</name>
+				<name>*dbprefix*job_class_index</name>
 				<field>
 					<name>class</name>
 					<sorting>ascending</sorting>
@@ -786,7 +786,7 @@
 			</field>
 
 			<index>
-				<name>users_pKey</name>
+				<name>*dbprefix*users_pKey</name>
 				<primary>true</primary>
 				<field>
 					<name>uid</name>
@@ -880,7 +880,7 @@
 			</field>
 
 			<index>
-				<name>authtoken_token_index</name>
+				<name>*dbprefix*authtoken_token_index</name>
 				<unique>true</unique>
 				<field>
 					<name>token</name>
@@ -889,7 +889,7 @@
 			</index>
 
 			<index>
-				<name>authtoken_last_activity_index</name>
+				<name>*dbprefix*authtoken_last_activity_index</name>
 				<field>
 					<name>last_activity</name>
 					<sorting>ascending</sorting>
@@ -944,7 +944,7 @@
 			</field>
 
 			<index>
-				<name>uid_index</name>
+				<name>*dbprefix*uid_index</name>
 				<field>
 					<name>uid</name>
 					<sorting>ascending</sorting>
@@ -952,7 +952,7 @@
 			</index>
 
 			<index>
-				<name>type_index</name>
+				<name>*dbprefix*type_index</name>
 				<field>
 					<name>type</name>
 					<sorting>ascending</sorting>
@@ -960,7 +960,7 @@
 			</index>
 
 			<index>
-				<name>category_index</name>
+				<name>*dbprefix*category_index</name>
 				<field>
 					<name>category</name>
 					<sorting>ascending</sorting>
@@ -1009,7 +1009,7 @@
 		<index>
 			<primary>true</primary>
 			<unique>true</unique>
-			<name>category_object_index</name>
+			<name>*dbprefix*category_object_index</name>
 			<field>
 				<name>categoryid</name>
 				<sorting>ascending</sorting>
@@ -1025,7 +1025,7 @@
 		</index>
 
 		<index>
-			<name>vcategory_objectd_index</name>
+			<name>*dbprefix*vcategory_objectd_index</name>
 			<field>
 				<name>objid</name>
 				<sorting>ascending</sorting>
@@ -1086,7 +1086,7 @@
 			</field>
 
 			<index>
-				<name>tag_ident</name>
+				<name>*dbprefix*tag_ident</name>
 				<unique>true</unique>
 				<field>
 					<name>name</name>
@@ -1144,7 +1144,7 @@
 
 		<index>
 			<unique>true</unique>
-			<name>mapping</name>
+			<name>*dbprefix*mapping</name>
 			<field>
 				<name>objecttype</name>
 				<sorting>ascending</sorting>
@@ -1189,7 +1189,7 @@
 		</field>
 
 		<index>
-			<name>systemtag_group</name>
+			<name>*dbprefix*systemtag_group</name>
 			<primary>true</primary>
 			<unique>true</unique>
 			<field>
@@ -1263,7 +1263,7 @@
 		<index>
 			<primary>true</primary>
 			<unique>true</unique>
-			<name>keyid_index</name>
+			<name>*dbprefix*keyid_index</name>
 			<field>
 				<name>keyid</name>
 				<sorting>ascending</sorting>
@@ -1319,7 +1319,7 @@
 			<index>
 				<primary>true</primary>
 				<unique>true</unique>
-				<name>lock_id_index</name>
+				<name>*dbprefix*lock_id_index</name>
 				<field>
 					<name>id</name>
 					<sorting>ascending</sorting>
@@ -1328,7 +1328,7 @@
 
 			<index>
 				<unique>true</unique>
-				<name>lock_key_index</name>
+				<name>*dbprefix*lock_key_index</name>
 				<field>
 					<name>key</name>
 					<sorting>ascending</sorting>
@@ -1336,7 +1336,7 @@
 			</index>
 
 			<index>
-				<name>lock_ttl_index</name>
+				<name>*dbprefix*lock_ttl_index</name>
 				<field>
 					<name>ttl</name>
 					<sorting>ascending</sorting>
@@ -1454,7 +1454,7 @@
 			</field>
 
 			<index>
-				<name>comments_parent_id_index</name>
+				<name>*dbprefix*comments_parent_id_index</name>
 				<unique>false</unique>
 				<field>
 					<name>parent_id</name>
@@ -1463,7 +1463,7 @@
 			</index>
 
 			<index>
-				<name>comments_topmost_parent_id_idx</name>
+				<name>*dbprefix*comments_topmost_parent_id_idx</name>
 				<unique>false</unique>
 				<field>
 					<name>topmost_parent_id</name>
@@ -1472,7 +1472,7 @@
 			</index>
 
 			<index>
-				<name>comments_object_index</name>
+				<name>*dbprefix*comments_object_index</name>
 				<unique>false</unique>
 				<field>
 					<name>object_type</name>
@@ -1489,7 +1489,7 @@
 			</index>
 
 			<index>
-				<name>comments_actor_index</name>
+				<name>*dbprefix*comments_actor_index</name>
 				<unique>false</unique>
 				<field>
 					<name>actor_type</name>
@@ -1545,7 +1545,7 @@
 			</field>
 
 			<index>
-				<name>comments_marker_object_index</name>
+				<name>*dbprefix*comments_marker_object_index</name>
 				<unique>false</unique>
 				<field>
 					<name>object_type</name>
@@ -1558,7 +1558,7 @@
 			</index>
 
 			<index>
-				<name>comments_marker_index</name>
+				<name>*dbprefix*comments_marker_index</name>
 				<unique>true</unique>
 				<field>
 					<name>user_id</name>
@@ -1608,7 +1608,7 @@
 			</field>
 
 			<index>
-				<name>credentials_user_id</name>
+				<name>*dbprefix*credentials_user_id</name>
 				<primary>true</primary>
 				<unique>true</unique>
 				<field>
@@ -1622,7 +1622,7 @@
 			</index>
 
 			<index>
-				<name>credentials_user</name>
+				<name>*dbprefix*credentials_user</name>
 				<unique>false</unique>
 				<field>
 					<name>user</name>

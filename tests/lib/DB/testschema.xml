@@ -60,7 +60,7 @@
 			</field>
 
 			<index>
-				<name>index_primary</name>
+				<name>*dbprefix*index_primary</name>
 				<primary>true</primary>
 				<unique>true</unique>
 				<field>
@@ -70,7 +70,7 @@
 			</index>
 
 			<index>
-				<name>index_boolean</name>
+				<name>*dbprefix*index_boolean</name>
 				<unique>false</unique>
 				<field>
 					<name>booleanfield</name>
