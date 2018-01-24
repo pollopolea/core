@@ -3,7 +3,7 @@
  * ownCloud
  *
  * @author Artur Neumann <artur@jankaritech.com>
- * @copyright 2017 Artur Neumann artur@jankaritech.com
+ * @copyright Copyright (c) 2017 Artur Neumann artur@jankaritech.com
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -23,9 +23,8 @@
 use Behat\Behat\Context\Context;
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Gherkin\Node\TableNode;
-use Behat\MinkExtension\Context\RawMinkContext;
 use Behat\Mink\Exception\ExpectationException;
-
+use Behat\MinkExtension\Context\RawMinkContext;
 use Page\UsersPage;
 
 require_once 'bootstrap.php';

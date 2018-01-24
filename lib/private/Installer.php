@@ -19,7 +19,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Thomas Tanghus <thomas@tanghus.net>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -49,6 +49,12 @@ use OCP\App\AppAlreadyInstalledException;
  * This class provides the functionality needed to install, update and remove plugins/apps
  */
 class Installer {
+
+	private static $allowedArchiveMimetypes = array (
+		'application/zip',
+		'application/x-gzip',
+		'application/x-bzip2',
+	);
 
 	/**
 	 *
@@ -276,9 +282,9 @@ class Installer {
 		}
 
 		//detect the archive type
-		$mime = \OC::$server->getMimeTypeDetector()->detect($path);
-		if ($mime !=='application/zip' && $mime !== 'application/x-gzip' && $mime !== 'application/x-bzip2') {
-			throw new \Exception($l->t("Archives of type %s are not supported", [$mime]));
+		$mimeType = \OC::$server->getMimeTypeDetector()->detect($path);
+		if (!in_array($mimeType, self::$allowedArchiveMimetypes)) {
+			throw new \Exception($l->t("Archives of type %s are not supported", [$mimeType]));
 		}
 
 		//extract the archive in a temporary folder

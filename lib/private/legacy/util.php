@@ -39,7 +39,7 @@
  * @author Vincent Petry <pvince81@owncloud.com>
  * @author Volkan Gezer <volkangezer@gmail.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -56,6 +56,7 @@
  *
  */
 
+use OCP\Files\NoReadAccessException;
 use OCP\IConfig;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -416,17 +417,25 @@ class OC_Util {
 	 * @param string $source
 	 * @param \OCP\Files\Folder $target
 	 * @return void
+	 * @throws NoReadAccessException
 	 */
 	public static function copyr($source, \OCP\Files\Folder $target) {
-		$dir = opendir($source);
+		$dir = @opendir($source);
+		if (false === $dir) {
+			throw new NoReadAccessException('No read permission for folder ' . $source);
+		}
 		while (false !== ($file = readdir($dir))) {
 			if (!\OC\Files\Filesystem::isIgnoredDir($file)) {
 				if (is_dir($source . '/' . $file)) {
 					$child = $target->newFolder($file);
 					self::copyr($source . '/' . $file, $child);
 				} else {
+					$sourceFileHandle = @fopen($source . '/' . $file,'r');
+					if (false === $sourceFileHandle) {
+						throw new NoReadAccessException('No read permission for file ' . $file);
+					}
 					$child = $target->newFile($file);
-					stream_copy_to_stream(fopen($source . '/' . $file,'r'), $child->fopen('w'));
+					stream_copy_to_stream($sourceFileHandle, $child->fopen('w'));
 				}
 			}
 		}
@@ -782,6 +791,7 @@ class OC_Util {
 				'DOMDocument' => 'dom',
 				'XMLWriter' => 'XMLWriter',
 				'XMLReader' => 'XMLReader',
+				'Collator' => 'intl',
 			],
 			'functions' => [
 				'xml_parser_create' => 'libxml',
@@ -1056,19 +1066,20 @@ class OC_Util {
 	}
 
 	/**
-	 * Check if the user is a subadmin, redirects to home if not
+	 * Check if the user has administration privileges, redirects to home if not
 	 *
 	 * @return null|boolean $groups where the current user is subadmin
 	 */
 	public static function checkSubAdminUser() {
 		OC_Util::checkLoggedIn();
+		$hasUserManagementPrivileges = false;
 		$userObject = \OC::$server->getUserSession()->getUser();
-		$isSubAdmin = false;
 		if($userObject !== null) {
-			$isSubAdmin = \OC::$server->getGroupManager()->getSubAdmin()->isSubAdmin($userObject);
+			//Admin and SubAdmins are allowed to access user management
+			$hasUserManagementPrivileges = \OC::$server->getGroupManager()->isAdmin($userObject->getUID())
+				|| \OC::$server->getGroupManager()->getSubAdmin()->isSubAdmin($userObject);
 		}
-
-		if (!$isSubAdmin) {
+		if (!$hasUserManagementPrivileges) {
 			header('Location: ' . \OCP\Util::linkToAbsolute('', 'index.php'));
 			exit();
 		}

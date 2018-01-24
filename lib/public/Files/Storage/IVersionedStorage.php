@@ -2,7 +2,7 @@
 /**
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@ namespace OCP\Files\Storage;
  * Interface IVersionedStorage - storage layer to access version of a file
  *
  * @package OCP\Files\Storage
- * @since 10.1.0
+ * @since 10.0.5
  */
 interface IVersionedStorage {
 
@@ -35,7 +35,7 @@ interface IVersionedStorage {
 	 *
 	 * @param string $internalPath
 	 * @return array
-	 * @since 10.1.0
+	 * @since 10.0.5
 	 */
 	public function getVersions($internalPath);
 
@@ -45,7 +45,7 @@ interface IVersionedStorage {
 	 * @param string $internalPath
 	 * @param string $versionId
 	 * @return array
-	 * @since 10.1.0
+	 * @since 10.0.5
 	 */
 	public function getVersion($internalPath, $versionId);
 
@@ -55,7 +55,7 @@ interface IVersionedStorage {
 	 * @param string $internalPath
 	 * @param string $versionId
 	 * @return resource
-	 * @since 10.1.0
+	 * @since 10.0.5
 	 */
 	public function getContentOfVersion($internalPath, $versionId);
 
@@ -64,9 +64,18 @@ interface IVersionedStorage {
 	 *
 	 * @param string $internalPath
 	 * @param string $versionId
-	 * @return void
-	 * @since 10.1.0
+	 * @return boolean
+	 * @since 10.0.5
 	 */
 	public function restoreVersion($internalPath, $versionId);
+
+	/**
+	 * Tells the storage to explicitly create a version of a given file
+	 *
+	 * @param string $internalPath
+	 * @return bool
+	 * @since 10.0.5
+	 */
+	public function saveVersion($internalPath);
 
 }

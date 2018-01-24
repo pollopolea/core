@@ -6,7 +6,7 @@
  * @author Morris Jobke <hey@morrisjobke.de>
  * @author Stefan Weil <sw@weilnetz.de>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -27,7 +27,6 @@ namespace OC\AppFramework\Middleware\Security;
 
 use OC\AppFramework\Middleware\Security\Exceptions\SecurityException;
 use OC\AppFramework\Utility\ControllerMethodReflector;
-use OC\Authentication\Exceptions\PasswordLoginForbiddenException;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;

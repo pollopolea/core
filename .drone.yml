@@ -27,19 +27,11 @@ pipeline:
     when:
       event: [push, pull_request]
 
-  npm:
-    image: owncloudci/php:${PHP_VERSION}
+  yarn:
+    image: owncloudci/nodejs:latest
     pull: true
     commands:
-      - ./tests/drone/npm-install.sh
-    when:
-      event: [push, pull_request]
-
-  bower:
-    image: owncloudci/php:${PHP_VERSION}
-    pull: true
-    commands:
-      - ./tests/drone/bower-install.sh
+      - ./tests/drone/yarn-install.sh
     when:
       event: [push, pull_request]
 
@@ -86,20 +78,20 @@ pipeline:
     pull: true
     files:
      - tests/autotest-clover-${DB_TYPE}.xml
+     - tests/autotest-external-clover-${DB_TYPE}.xml
     when:
       event: [push, pull_request]
       matrix:
         TEST_SUITE: coverage
 
-  javascript:
+  test-javascript:
     image: owncloudci/php:${PHP_VERSION}
     pull: true
-    group: test
     commands:
       - ./tests/drone/test-javascript.sh
     when:
       matrix:
-        TEST_SUITE: phpunit
+        TEST_SUITE: javascript
 
   phpunit:
     image: owncloudci/php:${PHP_VERSION}
@@ -113,6 +105,67 @@ pipeline:
     when:
       matrix:
         TEST_SUITE: phpunit
+
+  files_external:
+    image: owncloudci/php:${PHP_VERSION}
+    pull: true
+    group: test
+    environment:
+      - PHP_VERSION=${PHP_VERSION}
+      - DB_TYPE=${DB_TYPE}
+    commands:
+      - ./tests/drone/test-files-external.sh
+    when:
+      matrix:
+        TEST_SUITE: files_external
+
+  install-server:
+    image: owncloudci/php:${PHP_VERSION}
+    pull: true
+    commands:
+      - cd /drone/src/
+      - php occ maintenance:install -vvv --database=mysql --database-host=${DB_TYPE} --database-user=owncloud --database-pass=owncloud --database-name=owncloud --database-table-prefix=oc_ --admin-user=admin --admin-pass=admin --data-dir=/drone/src/data
+      - php occ a:l
+      - php occ a:e testing
+      - php occ a:l
+      - php occ config:system:set trusted_domains 1 --value=server
+      - php occ config:system:set trusted_domains 2 --value=federated
+      - php occ log:manage --level 0
+      - php occ config:list
+    when:
+      matrix:
+        TEST_SUITE: selenium
+
+  owncloud-log:
+    image: owncloud/ubuntu:16.04
+    detach: true
+    pull: true
+    commands:
+      - tail -f /drone/src/data/owncloud.log
+    when:
+      matrix:
+        TEST_SUITE: selenium
+
+  acceptance-tests:
+    image: owncloudci/php:latest
+    pull: true
+    environment:
+      - BROWSER=chrome
+      - SELENIUM_HOST=selenium
+      - SRV_HOST_NAME=server
+      - SRV_HOST_PORT=80
+      - REMOTE_FED_SRV_HOST_NAME=federated
+      - REMOTE_FED_SRV_HOST_PORT=80
+      - SKELETON_DIR=/drone/src/tests/ui/skeleton
+      - SELENIUM_PORT=4444
+      - PLATFORM=Linux
+    commands:
+      - cd /drone/src/
+      - chown www-data * -R
+      - bash tests/travis/start_ui_tests.sh --remote 
+    when:
+      matrix:
+        TEST_SUITE: selenium
 
 services:
   mariadb:
@@ -158,18 +211,52 @@ services:
       matrix:
         DB_TYPE: postgres
 
-  # oracle:
-  #   image: oracle:x.x
-  #   environment:
-  #     - ORACLE_USER=owncloud
-  #     - ORACLE_PASSWORD=owncloud
-  #     - ORACLE_DB=owncloud
-  #   when:
-  #     matrix:
-  #       DB_TYPE: oracle
+  owncloud_external:
+    image: owncloud/server:latest
+    when:
+      matrix:
+        FILES_EXTERNAL_TYPE: webdav
 
+  oracle:
+    image: deepdiver/docker-oracle-xe-11g
+    environment:
+       - ORACLE_USER=system
+       - ORACLE_PASSWORD=oracle
+       - ORACLE_DB=owncloud
+    when:
+      matrix:
+        DB_TYPE: oracle
+
+  selenium:
+    image: selenium/standalone-chrome-debug:latest
+    pull: true
+    when:
+      matrix:
+        TEST_SUITE: selenium
+
+  server:
+    image: owncloudci/php:latest
+    pull: true
+    environment:
+      - APACHE_WEBROOT=/drone/src/
+    command: [ "/usr/local/bin/apachectl", "-e debug" , "-DFOREGROUND" ]
+    when:
+      matrix:
+        USE_SERVER: true
+
+  federated:
+    image: owncloudci/php:latest
+    pull: true
+    environment:
+      - APACHE_WEBROOT=/drone/src/
+    command: [ "/usr/local/bin/apachectl", "-e debug" , "-DFOREGROUND" ]
+    when:
+      matrix:
+        USE_FEDERATED_SERVER: true
 matrix:
   include:
+    - TEST_SUITE: javascript
+      PHP_VERSION: 7.1
     # PHP 5.6
     #- PHP_VERSION: 5.6
     #  DB_TYPE: sqlite
@@ -183,14 +270,14 @@ matrix:
     - PHP_VERSION: 5.6
       DB_TYPE: postgres
       TEST_SUITE: phpunit
-    # - PHP_VERSION: 5.6
-    #   DB_TYPE: oracle
-    #   TEST_SUITE: phpunit
+    - PHP_VERSION: 5.6
+      DB_TYPE: oracle
+      TEST_SUITE: phpunit
 
     # PHP 7.0
-    #- PHP_VERSION: 7.0
-    #  DB_TYPE: sqlite
-    #  TEST_SUITE: phpunit
+    - PHP_VERSION: 7.0
+      DB_TYPE: sqlite
+      TEST_SUITE: phpunit
     #- PHP_VERSION: 7.0
     #  DB_TYPE: mariadb
     #  TEST_SUITE: phpunit
@@ -210,7 +297,8 @@ matrix:
     # PHP 7.1
     - PHP_VERSION: 7.1
       DB_TYPE: sqlite
-      TEST_SUITE: phpunit
+      TEST_SUITE: files_external
+      FILES_EXTERNAL_TYPE: webdav
     #- PHP_VERSION: 7.1
     #  DB_TYPE: mariadb
     #  TEST_SUITE: phpunit
@@ -225,9 +313,9 @@ matrix:
     #   TEST_SUITE: phpunit
 
     # PHP 7.2
-    #- PHP_VERSION: 7.2
-    #  DB_TYPE: sqlite
-    #  TEST_SUITE: phpunit
+    - PHP_VERSION: 7.2
+      DB_TYPE: sqlite
+      TEST_SUITE: phpunit
     #- PHP_VERSION: 7.2
     #  DB_TYPE: mariadb
     #  TEST_SUITE: phpunit
@@ -252,5 +340,71 @@ matrix:
       TEST_SUITE: coverage
 
     - PHP_VERSION: 7.1
-      DB_TYPE: mariadb
+      DB_TYPE: mysql
       TEST_SUITE: coverage
+
+    - PHP_VERSION: 7.1
+      DB_TYPE: sqlite
+      TEST_SUITE: coverage
+      FILES_EXTERNAL_TYPE: webdav
+      
+    - PHP_VERSION: 7.1
+      TEST_SUITE: selenium
+      BEHAT_SUITE: other
+      DB_TYPE: mariadb
+      USE_SERVER: true
+      
+    - PHP_VERSION: 7.1
+      TEST_SUITE: selenium
+      BEHAT_SUITE: files
+      DB_TYPE: mariadb
+      USE_SERVER: true
+
+    - PHP_VERSION: 7.1
+      TEST_SUITE: selenium
+      BEHAT_SUITE: moveFilesFolders
+      DB_TYPE: mariadb
+      USE_SERVER: true
+    
+    - PHP_VERSION: 7.1
+      TEST_SUITE: selenium
+      BEHAT_SUITE: renameFiles
+      DB_TYPE: mariadb
+      USE_SERVER: true
+    
+    - PHP_VERSION: 7.1
+      TEST_SUITE: selenium
+      BEHAT_SUITE: renameFolders
+      DB_TYPE: mariadb
+      USE_SERVER: true
+    
+    - PHP_VERSION: 7.1
+      TEST_SUITE: selenium
+      BEHAT_SUITE: trashbin
+      DB_TYPE: mariadb
+      USE_SERVER: true
+    
+    - PHP_VERSION: 7.1
+      TEST_SUITE: selenium
+      BEHAT_SUITE: sharingInternalGroupsUsers
+      DB_TYPE: mariadb
+      USE_SERVER: true
+    
+    - PHP_VERSION: 7.1
+      TEST_SUITE: selenium
+      BEHAT_SUITE: sharingExternalOther
+      DB_TYPE: mariadb
+      USE_SERVER: true
+      USE_FEDERATED_SERVER: true
+    
+    - PHP_VERSION: 7.1
+      TEST_SUITE: selenium
+      BEHAT_SUITE: restrictSharing
+      DB_TYPE: mariadb
+      USE_SERVER: true
+      
+    - PHP_VERSION: 7.1
+      TEST_SUITE: selenium
+      BEHAT_SUITE: upload
+      DB_TYPE: mariadb
+      USE_SERVER: true

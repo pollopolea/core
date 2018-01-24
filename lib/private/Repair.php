@@ -10,7 +10,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -32,6 +32,7 @@ namespace OC;
 use OC\Repair\Apps;
 use OC\Repair\CleanTags;
 use OC\Repair\Collation;
+use OC\Repair\DisableExtraThemes;
 use OC\Repair\DropOldJobs;
 use OC\Repair\OldGroupMembershipShares;
 use OC\Repair\RemoveGetETagEntries;
@@ -150,6 +151,11 @@ class Repair implements IOutput{
 				\OC::$server->getDatabaseConnection(),
 				\OC::$server->getUserManager(),
 				\OC::$server->getGroupManager()
+			),
+			new DisableExtraThemes(
+				\OC::$server->getAppManager(),
+				\OC::$server->getConfig(),
+				\OC::$server->getAppConfig()
 			),
 		];
 	}

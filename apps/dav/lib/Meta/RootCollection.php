@@ -2,7 +2,7 @@
 /**
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -23,10 +23,8 @@
 namespace OCA\DAV\Meta;
 
 
-use OCP\Files\File;
-use OCP\Files\Folder;
+use OC\Files\Meta\MetaFileIdNode;
 use OCP\Files\IRootFolder;
-use OCP\Files\Node;
 use OCP\Files\NotFoundException;
 use Sabre\DAV\Collection;
 use Sabre\DAV\Exception\MethodNotAllowed;
@@ -52,8 +50,11 @@ class RootCollection extends Collection {
 	public function getChild($name) {
 		try {
 			$child = $this->rootFolder->get("meta/$name");
-			return MetaFolder::nodeFactory($child);
-		} catch (NotFoundException $ex) {
+			if (!$child instanceof MetaFileIdNode) {
+				throw new NotFound();
+			}
+			return new MetaFolder($child);
+		} catch (NotFoundException $exception) {
 			throw new NotFound();
 		}
 	}

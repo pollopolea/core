@@ -3,7 +3,7 @@
  * ownCloud
  *
  * @author Artur Neumann <artur@jankaritech.com>
- * @copyright 2017 Artur Neumann artur@jankaritech.com
+ * @copyright Copyright (c) 2017 Artur Neumann artur@jankaritech.com
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -22,10 +22,10 @@
 
 namespace Page;
 
-use Page\FilesPageElement\FileRow;
-use Page\FilesPageElement\FileActionsMenu;
-use SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException;
 use Behat\Mink\Session;
+use Page\FilesPageElement\FileActionsMenu;
+use Page\FilesPageElement\FileRow;
+use SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException;
 use WebDriver\Exception\NoSuchElement;
 use WebDriver\Exception\StaleElementReference;
 
@@ -37,12 +37,14 @@ abstract class FilesPageBasic extends OwnCloudPage {
 	protected $fileActionMenuBtnXpathByNo = ".//*[@id='fileList']/tr[%d]//a[@data-action='menu']";
 	protected $fileActionMenuBtnXpath = "//a[@data-action='menu']";
 	protected $fileActionMenuXpath = "//div[contains(@class,'fileActionsMenu')]";
+	protected $fileRowsBusyXpath = "//tr[contains(@class,'busy')]";
 	protected $fileRowFromNameXpath = "/../../..";
 	protected $appContentId = "app-content";
 	protected $appContentFilesContainerId = "app-content-files";
 	protected $controlsId = "controls";
 	protected $loadingIndicatorXpath = ".//*[@class='loading']";
 	protected $deleteAllSelectedBtnXpath = ".//*[@id='app-content-files']//*[@class='delete-selected']";
+	protected $fileRowXpathFromActionMenu = "/../..";
 
 	/**
 	 * @return string
@@ -258,12 +260,65 @@ abstract class FilesPageBasic extends OwnCloudPage {
 	 *
 	 * @param string|array $name
 	 * @param Session $session
+	 * @param int $maxRetries
 	 * @return void
 	 */
-	public function deleteFile($name, Session $session) {
-		$row = $this->findFileRowByName($name, $session);
-		$row->delete();
-		$this->waitForOutstandingAjaxCalls($session);
+	public function deleteFile($name, Session $session, $maxRetries = 5) {
+		$this->initAjaxCounters($session);
+		$this->resetSumStartedAjaxRequests($session);
+		
+		for ($counter = 0; $counter < $maxRetries; $counter++) {
+			$row = $this->findFileRowByName($name, $session);
+			try {
+				$row->delete($session);
+				$this->waitForAjaxCallsToStartAndFinish($session);
+				$countXHRRequests = $this->getSumStartedAjaxRequests($session);
+				//if no XHR Request were fired we assume the delete action
+				//did not work and we retry
+				if ($countXHRRequests === 0) {
+					error_log("Error while deleting file");
+				} else {
+					break;
+				}
+			} catch (\Exception $e) {
+				$this->closeFileActionsMenu();
+				error_log(
+					"Error while deleting file"
+					. "\n-------------------------\n"
+					. $e->getMessage()
+					. "\n-------------------------\n"
+				);
+				usleep(STANDARDSLEEPTIMEMICROSEC);
+			}
+		}
+		if ($counter > 0) {
+			$message = "INFORMATION: retried to delete file '" . $name . "' " .
+					   $counter . " times";
+			echo $message;
+			error_log($message);
+		}
+	}
+
+	/**
+	 * closes the fileactionsmenu is any is open
+	 * 
+	 * @return void
+	 */
+	public function closeFileActionsMenu() {
+		try {
+			$actionMenu = $this->findFileActionMenuElement();
+			$fileRowElement = $actionMenu->find(
+				"xpath", $this->fileRowXpathFromActionMenu
+			);
+			/**
+			 * 
+			 * @var FileRow $fileRow
+			 */
+			$fileRow = $this->getPage('FilesPageElement\\FileRow');
+			$fileRow->setElement($fileRowElement);
+			$fileRow->clickFileActionButton();
+		} catch (\Exception $e) {
+		}
 	}
 
 	/**
@@ -359,6 +414,7 @@ abstract class FilesPageBasic extends OwnCloudPage {
 		Session $session,
 		$timeout_msec = LONGUIWAITTIMEOUTMILLISEC
 	) {
+		$this->initAjaxCounters($session);
 		$currentTime = microtime(true);
 		$end = $currentTime + ($timeout_msec / 1000);
 		while ($currentTime <= $end) {
@@ -422,5 +478,42 @@ abstract class FilesPageBasic extends OwnCloudPage {
 		}
 
 		$this->waitForOutstandingAjaxCalls($session);
+	}
+
+	/**
+	 * when files have changes in progress to the server (e.g. rename or delete)
+	 * then the corresponding rows of the file list are marked as busy.
+	 * this function waits until no rows are busy, or it times out
+	 *
+	 * @param Session $session
+	 * @param int $timeout_msec
+	 * @return void
+	 */
+	public function waitTillFileRowsAreReady(
+		Session $session,
+		$timeout_msec = LONGUIWAITTIMEOUTMILLISEC
+	) {
+		$currentTime = microtime(true);
+		$end = $currentTime + ($timeout_msec / 1000);
+		while ($currentTime <= $end) {
+			$fileList = $this->find('xpath', $this->getFileListXpath());
+
+			if (!is_null($fileList)) {
+				$busyFileRows = $fileList->findAll('xpath', $this->fileRowsBusyXpath);
+
+				if (count($busyFileRows) === 0) {
+					break;
+				}
+			}
+
+			usleep(STANDARDSLEEPTIMEMICROSEC);
+			$currentTime = microtime(true);
+		}
+
+		if ($currentTime > $end) {
+			throw new \Exception(
+				__METHOD__ . " timeout waiting for file rows to be ready"
+			);
+		}
 	}
 }

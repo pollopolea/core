@@ -4,7 +4,7 @@
  * ownCloud
  *
  * @author Artur Neumann <artur@jankaritech.com>
- * @copyright 2017 Artur Neumann artur@jankaritech.com
+ * @copyright Copyright (c) 2017 Artur Neumann artur@jankaritech.com
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -23,13 +23,13 @@
 
 namespace Page;
 
+use Behat\Mink\Element\NodeElement;
+use Behat\Mink\Session;
+use Page\OwncloudPageElement\OCDialog;
 use SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException;
 use SensioLabs\Behat\PageObjectExtension\PageObject\Page;
-use Behat\Mink\Session;
-use Behat\Mink\Element\NodeElement;
 use WebDriver\Exception as WebDriverException;
 use WebDriver\Key;
-use Page\OwncloudPageElement\OCDialog;
 
 /**
  * Owncloud page.
@@ -314,7 +314,7 @@ class OwncloudPage extends Page {
 	}
 
 	/**
-	 * waits till all ajax calls are finished (jQuery.active === 0)
+	 * waits till all ajax calls are finished
 	 *
 	 * @param Session $session
 	 * @param int $timeout_msec
@@ -324,6 +324,7 @@ class OwncloudPage extends Page {
 		Session $session,
 		$timeout_msec = STANDARDUIWAITTIMEOUTMILLISEC
 	) {
+		$this->initAjaxCounters($session);
 		$timeout_msec = (int) $timeout_msec;
 		if ($timeout_msec <= 0) {
 			throw new \InvalidArgumentException("negative or zero timeout");
@@ -332,9 +333,20 @@ class OwncloudPage extends Page {
 		$end = $currentTime + ($timeout_msec / 1000);
 		while ($currentTime <= $end) {
 			try {
+				//wait for jQuery.active and
+				//window.activeAjaxCount that is set by the testing code
+				//to catch non-jQuery XHR requests
+				//but if window.activeAjaxCount was not set, ignore it
 				$waitingResult = $session->wait(
 					STANDARDSLEEPTIMEMILLISEC,
-					"(typeof jQuery != 'undefined' && (0 === jQuery.active))"
+					"(
+						typeof jQuery != 'undefined' 
+						&& (0 === jQuery.active) 
+						&& (
+							typeof window.activeAjaxCount === 'undefined' 
+							|| 0 === window.activeAjaxCount
+							)
+					)"
 				);
 				if ($waitingResult === true) {
 					break;
@@ -361,7 +373,9 @@ class OwncloudPage extends Page {
 	 * @param int $timeout_msec
 	 * @return void
 	 */
-	public function waitForAjaxCallsToStart(Session $session, $timeout_msec = 1000) {
+	public function waitForAjaxCallsToStart(
+		Session $session, $timeout_msec = 1000
+	) {
 		$timeout_msec = (int) $timeout_msec;
 		if ($timeout_msec <= 0) {
 			throw new \InvalidArgumentException("negative or zero timeout");
@@ -369,7 +383,21 @@ class OwncloudPage extends Page {
 		$currentTime = microtime(true);
 		$end = $currentTime + ($timeout_msec / 1000);
 		while ($currentTime <= $end) {
-			if ((int) $session->evaluateScript("jQuery.active") > 0) {
+			$activeAjax = $session->evaluateScript(
+				'(
+				function () {
+					var result = 0;
+					if (typeof window.activeAjaxCount === "number") {
+						result = result + window.activeAjaxCount;
+					}
+					if (typeof jQuery.active === "number") {
+						result = result + jQuery.active;
+					}
+					return result;
+				})()
+				'
+			);
+			if ((int) $activeAjax > 0) {
 				break;
 			}
 			usleep(STANDARDSLEEPTIMEMICROSEC);
@@ -395,6 +423,95 @@ class OwncloudPage extends Page {
 		$timeout_msec = $timeout_msec - (($end - $start) * 1000);
 		$timeout_msec = max($timeout_msec, MINIMUMUIWAITTIMEOUTMILLISEC);
 		$this->waitForOutstandingAjaxCalls($session, $timeout_msec);
+	}
+
+	/**
+	 * creates wrappers around XHR requests
+	 * counts active requests in "window.activeAjaxCount"
+	 * counts the sum of ajax requests in window.sumStartedAjaxRequests
+	 * 
+	 * @param Session $session
+	 * @see resetSumStartedAjaxRequests()
+	 * @see getSumStartedAjaxRequests()
+	 * @return void
+	 */
+	public function initAjaxCounters(
+		Session $session
+	) {
+		$activeAjaxCountIsUndefined = $session->evaluateScript(
+			"(typeof window.activeAjaxCount === 'undefined')"
+		);
+		
+		//only overwrite the send and open functions once
+		if ($activeAjaxCountIsUndefined === true) {
+			$session->executeScript(
+				'
+				window.sumStartedAjaxRequests = 0;
+				window.activeAjaxCount = 0;
+				function isAllXhrComplete(){
+					window.activeAjaxCount--;
+				}
+				
+				(function(open) {
+					XMLHttpRequest.prototype.open = function() {
+						this.addEventListener("load", isAllXhrComplete);
+						return open.apply(this, arguments);
+					};
+				})(XMLHttpRequest.prototype.open);
+				
+				(function(send) {
+					XMLHttpRequest.prototype.send = function () {
+						window.activeAjaxCount++;
+						window.sumStartedAjaxRequests++;
+						return send.apply(this, arguments);
+					};
+				})(XMLHttpRequest.prototype.send);
+				'
+			);
+		}
+	}
+
+	/**
+	 * reset the sum ajax counter so that every function can start counting from 0
+	 * 
+	 * @param Session $session
+	 * @see initAjaxCounters()
+	 * @return void
+	 */
+	public function resetSumStartedAjaxRequests(Session $session) {
+		$this->assertSumStartedAjaxRequestsIsDefined($session);
+		$session->executeScript('window.sumStartedAjaxRequests = 0;');
+	}
+
+	/**
+	 * gets the sum of all started Ajax requests
+	 * 
+	 * @param Session $session
+	 * @see initAjaxCounters()
+	 * @return int
+	 */
+	public function getSumStartedAjaxRequests(Session $session) {
+		$this->assertSumStartedAjaxRequestsIsDefined($session);
+		return (int) $session->evaluateScript("window.sumStartedAjaxRequests");
+	}
+
+	/**
+	 * 
+	 * @param Session $session
+	 * @see initAjaxCounters()
+	 * @throws \Exception
+	 * @return void
+	 */
+	private function assertSumStartedAjaxRequestsIsDefined(Session $session) {
+		$sumStartedAjaxRequestsIsUndefined = $session->evaluateScript(
+			"(typeof window.sumStartedAjaxRequests === 'undefined')"
+		);
+		if ($sumStartedAjaxRequestsIsUndefined === true) {
+			throw new \Exception(
+				"`window.sumStartedAjaxRequests` is undefined, " .
+				"call `initAjaxCounters()` first"
+			);
+		}
 	}
 
 	/**
@@ -429,6 +546,44 @@ class OwncloudPage extends Page {
 		}
 
 		return $exists;
+	}
+
+	/**
+	 * 
+	 * @param Session $session
+	 * @param string $scrolledElement jQuery identifier for the element that get scrolled
+	 * @param int $timeout_msec
+	 * @return void
+	 */
+	public function waitForScrollingToFinish(
+		Session $session, $scrolledElement,
+		$timeout_msec = STANDARDUIWAITTIMEOUTMILLISEC
+	) {
+		$session->executeScript(
+			'
+			jQuery.scrolling = 0;
+			$( "' . $scrolledElement . '" ).scroll(function() {
+							jQuery.scrolling=1;
+							clearTimeout( $.data( this, "scrollCheck" ) );
+							$.data( this, "scrollCheck", setTimeout(function() {
+								jQuery.scrolling=0;
+							}, 100) );
+						});
+			'
+		);
+		$result = 1;
+		$timeout_msec = (int) $timeout_msec;
+		$currentTime = microtime(true);
+		$end = $currentTime + ($timeout_msec / 1000);
+		while ($currentTime <= $end && $result !== 0) {
+			$result = (int)$session->evaluateScript("jQuery.scrolling");
+			$currentTime = microtime(true);
+		}
+		if ($currentTime > $end) {
+			$message = "INFORMATION: timed out waiting for scrolling to finish";
+			echo $message;
+			error_log($message);
+		}
 	}
 
 	/**

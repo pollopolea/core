@@ -8,7 +8,7 @@
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -27,13 +27,13 @@
 
 namespace OCA\Files_Sharing\AppInfo;
 
-use OCA\Files_Sharing\MountProvider;
-use OCP\AppFramework\App;
 use OC\AppFramework\Utility\SimpleContainer;
 use OCA\Files_Sharing\Controllers\ExternalSharesController;
 use OCA\Files_Sharing\Controllers\ShareController;
 use OCA\Files_Sharing\Middleware\SharingCheckMiddleware;
-use \OCP\IContainer;
+use OCA\Files_Sharing\MountProvider;
+use OCP\AppFramework\App;
+use OCP\IContainer;
 
 class Application extends App {
 	public function __construct(array $urlParams = []) {

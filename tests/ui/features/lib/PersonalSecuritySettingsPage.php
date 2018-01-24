@@ -4,7 +4,7 @@
  * ownCloud
  *
  * @author Artur Neumann <artur@jankaritech.com>
- * @copyright 2017 Artur Neumann artur@jankaritech.com
+ * @copyright Copyright (c) 2017 Artur Neumann artur@jankaritech.com
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -57,7 +57,7 @@ class PersonalSecuritySettingsPage extends OwncloudPage {
 			$this->createNewAppPasswordButtonId
 		);
 
-		if ($createNewAppPasswordButton === null) {
+		if (is_null($createNewAppPasswordButton)) {
 			throw new ElementNotFoundException(
 				__METHOD__ .
 				" id $this->createNewAppPasswordButtonId " .
@@ -71,7 +71,7 @@ class PersonalSecuritySettingsPage extends OwncloudPage {
 			$this->createNewAppPasswordButtonId
 		);
 
-		if ($createNewAppPasswordButton === null) {
+		if (is_null($createNewAppPasswordButton)) {
 			throw new ElementNotFoundException(
 				__METHOD__ .
 				" id $this->createNewAppPasswordButtonId " .

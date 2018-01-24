@@ -3,7 +3,7 @@
  * ownCloud
  *
  * @author Artur Neumann <artur@jankaritech.com>
- * @copyright 2017 Artur Neumann artur@jankaritech.com
+ * @copyright Copyright (c) 2017 Artur Neumann artur@jankaritech.com
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -22,9 +22,9 @@
 
 namespace Page;
 
+use Behat\Mink\Session;
 use SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException;
 use SensioLabs\Behat\PageObjectExtension\PageObject\Page;
-use Behat\Mink\Session;
 
 /**
  * Login page.
@@ -71,6 +71,7 @@ class LoginPage extends OwncloudPage {
 	 * @param Session $session
 	 * @param int $timeout_msec
 	 * @return void
+	 * @throws \Exception
 	 */
 	public function waitTillPageIsLoaded(
 		Session $session,

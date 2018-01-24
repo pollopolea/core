@@ -22,7 +22,7 @@ Feature: provisioning
 			| password | 123456 |
 		Then the OCS status code should be "100"
 		And the HTTP status code should be "200"
-		And user "brand-new-user" exists
+		And user "brand-new-user" already exists
 
 	Scenario: Create an existing user
 		Given as an "admin"
@@ -35,6 +35,7 @@ Feature: provisioning
 
 	Scenario: Get an existing user
 		Given as an "admin"
+		And user "brand-new-user" exists
 		When sending "GET" to "/cloud/users/brand-new-user"
 		Then the OCS status code should be "100"
 		And the HTTP status code should be "200"
@@ -58,7 +59,7 @@ Feature: provisioning
 			| value | brand-new-user@gmail.com |
 		Then the OCS status code should be "100"
 		And the HTTP status code should be "200"
-		And user "brand-new-user" exists
+		And user "brand-new-user" already exists
 
 	Scenario: Create a group
 		Given as an "admin"
@@ -68,7 +69,7 @@ Feature: provisioning
 			| password | 123456 |
 		Then the OCS status code should be "100"
 		And the HTTP status code should be "200"
-		And group "new-group" exists
+		And group "new-group" already exists
 
 	Scenario: Create a group with special characters
 		Given as an "admin"
@@ -78,7 +79,17 @@ Feature: provisioning
 			| password | 123456 |
 		Then the OCS status code should be "100"
 		And the HTTP status code should be "200"
-		And group "España" exists
+		And group "España" already exists
+
+	Scenario: Create a group named "0"
+		Given as an "admin"
+		And group "0" does not exist
+		When sending "POST" to "/cloud/groups" with
+			| groupid | 0 |
+			| password | 123456 |
+		Then the OCS status code should be "100"
+		And the HTTP status code should be "200"
+		And group "0" already exists
 
 	Scenario: adding user to a group without sending the group
 		Given as an "admin"
@@ -104,22 +115,30 @@ Feature: provisioning
 		Then the OCS status code should be "997"
 		And the HTTP status code should be "401"
 
-	Scenario: adding user to a group
+	Scenario Outline: adding a user to a group
 		Given as an "admin"
 		And user "brand-new-user" exists
-		And group "new-group" exists
+		And group "<group_id>" exists
 		When sending "POST" to "/cloud/users/brand-new-user/groups" with
-			| groupid | new-group |
+			| groupid | <group_id> |
 		Then the OCS status code should be "100"
 		And the HTTP status code should be "200"
+		Examples:
+			| group_id  |
+			| new-group |
+			| 0         |
 
 	Scenario: getting groups of an user
 		Given as an "admin"
 		And user "brand-new-user" exists
 		And group "new-group" exists
+		And group "0" exists
+		And user "brand-new-user" belongs to group "new-group"
+		And user "brand-new-user" belongs to group "0"
 		When sending "GET" to "/cloud/users/brand-new-user/groups"
 		Then groups returned are
 			| new-group |
+			| 0 |
 		And the OCS status code should be "100"
 
 	Scenario: adding a user which doesn't exist to a group
@@ -140,13 +159,16 @@ Feature: provisioning
 
 	Scenario: Getting all groups
 		Given as an "admin"
+		And group "0" exists
 		And group "new-group" exists
 		And group "admin" exists
+		And group "España" exists
 		When sending "GET" to "/cloud/groups"
 		Then groups returned are
 			| España |
 			| admin |
 			| new-group |
+			| 0 |
 
 	Scenario: create a subadmin
 		Given as an "admin"
@@ -162,7 +184,7 @@ Feature: provisioning
 		And user "brand-new-user" exists
 		And group "new-group" exists
 		And user "brand-new-user" belongs to group "new-group"
-		And user "brand-new-user" is subadmin of group "new-group"
+		And assure user "brand-new-user" is subadmin of group "new-group"
 		And as an "brand-new-user"
 		When sending "GET" to "/cloud/users"
 		Then users returned are
@@ -178,15 +200,19 @@ Feature: provisioning
 			| groupid | not-group |
 		Then the OCS status code should be "102"
 
-	Scenario: removing a user from a group
+	Scenario Outline: removing a user from a group
 		Given as an "admin"
 		And user "brand-new-user" exists
-		And group "new-group" exists
-		And user "brand-new-user" belongs to group "new-group"
+		And group "<group_id>" exists
+		And user "brand-new-user" belongs to group "<group_id>"
 		When sending "DELETE" to "/cloud/users/brand-new-user/groups" with
-			| groupid | new-group |
+			| groupid | <group_id> |
 		Then the OCS status code should be "100"
-		And user "brand-new-user" does not belong to group "new-group"
+		And user "brand-new-user" does not belong to group "<group_id>"
+		Examples:
+			| group_id  |
+			| new-group |
+			| 0         |
 
 	Scenario: create a subadmin using a user which does not exist
 		Given as an "admin"
@@ -210,6 +236,7 @@ Feature: provisioning
 		Given as an "admin"
 		And user "brand-new-user" exists
 		And group "new-group" exists
+		And assure user "brand-new-user" is subadmin of group "new-group"
 		When sending "GET" to "/cloud/users/brand-new-user/subadmins"
 		Then subadmin groups returned are
 			| new-group |
@@ -228,6 +255,7 @@ Feature: provisioning
 		Given as an "admin"
 		And user "brand-new-user" exists
 		And group "new-group" exists
+		And assure user "brand-new-user" is subadmin of group "new-group"
 		When sending "GET" to "/cloud/groups/new-group/subadmins"
 		Then subadmin users returned are
 			| brand-new-user |
@@ -246,7 +274,7 @@ Feature: provisioning
 		Given as an "admin"
 		And user "brand-new-user" exists
 		And group "new-group" exists
-		And user "brand-new-user" is subadmin of group "new-group"
+		And assure user "brand-new-user" is subadmin of group "new-group"
 		When sending "DELETE" to "/cloud/users/brand-new-user/subadmins" with
 			| groupid | new-group |
 		Then the OCS status code should be "100"
@@ -258,7 +286,7 @@ Feature: provisioning
 		When sending "DELETE" to "/cloud/users/brand-new-user" 
 		Then the OCS status code should be "100"
 		And the HTTP status code should be "200"
-		And user "brand-new-user" does not exist
+		And user "brand-new-user" does not already exist
 
 	Scenario: Delete a group
 		Given as an "admin"
@@ -266,7 +294,7 @@ Feature: provisioning
 		When sending "DELETE" to "/cloud/groups/new-group"
 		Then the OCS status code should be "100"
 		And the HTTP status code should be "200"
-		And group "new-group" does not exist
+		And group "new-group" does not already exist
 
 	Scenario: Delete a group with special characters
 	    Given as an "admin"
@@ -274,7 +302,7 @@ Feature: provisioning
 		When sending "DELETE" to "/cloud/groups/España"
 		Then the OCS status code should be "100"
 		And the HTTP status code should be "200"
-		And group "España" does not exist
+		And group "España" does not already exist
 
 	@no_encryption
 	Scenario: get enabled apps

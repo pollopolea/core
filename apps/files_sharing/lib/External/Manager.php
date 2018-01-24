@@ -10,7 +10,7 @@
  * @author Stefan Weil <sw@weilnetz.de>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -35,6 +35,7 @@ use OCP\Notification\IManager;
 use OCP\Share\Events\AcceptShare;
 use OCP\Share\Events\DeclineShare;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\EventDispatcher\GenericEvent;
 
 class Manager {
 	const STORAGE = '\OCA\Files_Sharing\External\Storage';
@@ -342,6 +343,8 @@ class Manager {
 
 		if($result) {
 			$this->removeReShares($id);
+			$event = new GenericEvent(null, ['user' => $this->uid, 'targetmount' => $mountPoint]);
+			$this->eventDispatcher->dispatch('\OCA\Files_Sharing::unshareEvent', $event);
 		}
 
 		return $result;

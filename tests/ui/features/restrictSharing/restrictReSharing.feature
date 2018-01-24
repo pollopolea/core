@@ -1,10 +1,9 @@
 @insulated
 Feature: restrict resharing
-
-As admin
-I would like to be able to forbid the sharing of a received share globally
-As user
-I would like to be able to forbid a user that received a share from me to share it further
+As an admin
+I want to be able to forbid the sharing of a received share globally
+As a user
+I want to be able to forbid a user that received a share from me to share it further
 
 	Background:
 		Given these users exist:
@@ -18,8 +17,6 @@ I would like to be able to forbid a user that received a share from me to share 
 		And the user "user1" is in the group "grp1"
 		And the user "user2" is in the group "grp1"
 		And I am on the login page
-		And I login with username "user1" and password "1234"
-		And I logout
 		And I login with username "user2" and password "1234"
 
 	@skipOnMICROSOFTEDGE
@@ -29,14 +26,12 @@ I would like to be able to forbid a user that received a share from me to share 
 		When the folder "simple-folder" is shared with the user "User One"
 		And the sharing permissions of "User One" for "simple-folder" are set to
 		| share | no |
-		And I logout
-		And I login with username "user1" and password "1234"
+		And I relogin with username "user1" and password "1234"
 		Then it should not be possible to share the folder "simple-folder (2)"
 
-	Scenario: forbid resharing globaly
+	Scenario: forbid resharing globally
 		When the setting "Allow resharing" in the section "Sharing" is disabled
 		And I am on the files page
 		And the folder "simple-folder" is shared with the user "User One"
-		And I logout
-		And I login with username "user1" and password "1234"
+		And I relogin with username "user1" and password "1234"
 		Then it should not be possible to share the folder "simple-folder (2)"

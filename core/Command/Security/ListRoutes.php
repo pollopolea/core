@@ -2,7 +2,7 @@
 /**
  * @author Jörn Friedrich Dreyer <jfd@butonic.de>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -46,7 +46,7 @@ class ListRoutes extends Base {
 	protected function configure() {
 		$this
 			->setName('security:routes')
-			->setDescription('list used routes')
+			->setDescription('List used routes.')
 			->addOption('with-details', 'd', InputOption::VALUE_NONE);
 		parent::configure();
 	}

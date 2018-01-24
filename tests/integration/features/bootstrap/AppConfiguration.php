@@ -5,7 +5,7 @@
  * @author Joas Schilling <coding@schilljs.com>
  * @author Sergio Bertolin <sbertolin@owncloud.com>
  * @author Phillip Davis <phil@jankaritech.com>
- * @copyright 2017 ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -22,9 +22,7 @@
  *
  */
 
-use GuzzleHttp\Message\ResponseInterface;
 use TestHelpers\AppConfigHelper;
-use TestHelpers\OcsApiHelper;
 
 require __DIR__ . '/../../../../lib/composer/autoload.php';
 

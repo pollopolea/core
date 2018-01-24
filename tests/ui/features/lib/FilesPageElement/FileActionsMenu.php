@@ -4,7 +4,7 @@
  * ownCloud
  *
  * @author Artur Neumann <artur@jankaritech.com>
- * @copyright 2017 Artur Neumann artur@jankaritech.com
+ * @copyright Copyright (c) 2017 Artur Neumann artur@jankaritech.com
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -23,9 +23,9 @@
 
 namespace Page\FilesPageElement;
 
+use Behat\Mink\Element\NodeElement;
 use Page\OwncloudPage;
 use SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException;
-use Behat\Mink\Element\NodeElement;
 
 /**
  * Object for files action Menu on the FilesPage
@@ -91,6 +91,7 @@ class FileActionsMenu extends OwnCloudPage {
 				" could not find action button with label " . $this->deleteActionLabel
 			);
 		}
+		$deleteBtn->focus();
 		$deleteBtn->click();
 	}
 	
@@ -114,6 +115,9 @@ class FileActionsMenu extends OwnCloudPage {
 				" xpath $xpathLocator could not find button '$action' in action Menu"
 			);
 		} else {
+			$this->waitFor(
+				STANDARDUIWAITTIMEOUTMILLISEC / 1000, array($button, 'isVisible')
+			);
 			return $button;
 		}
 	}

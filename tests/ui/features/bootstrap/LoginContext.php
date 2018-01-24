@@ -3,7 +3,7 @@
  * ownCloud
  *
  * @author Artur Neumann <artur@jankaritech.com>
- * @copyright 2017 Artur Neumann artur@jankaritech.com
+ * @copyright Copyright (c) 2017 Artur Neumann artur@jankaritech.com
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -23,7 +23,6 @@
 use Behat\Behat\Context\Context;
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\MinkExtension\Context\RawMinkContext;
-
 use Page\LoginPage;
 
 require_once 'bootstrap.php';
@@ -36,6 +35,10 @@ class LoginContext extends RawMinkContext implements Context {
 	private $loginPage;
 	private $filesPage;
 	private $expectedPage;
+	/**
+	 * 
+	 * @var FeatureContext
+	 */
 	private $featureContext;
 
 	/**
@@ -56,14 +59,38 @@ class LoginContext extends RawMinkContext implements Context {
 	}
 
 	/**
+	 * @When I relogin with username :username and password :password
+	 * @param string $username
+	 * @param string $password
+	 * @return void
+	 */
+	public function iReloginWithUsernameAndPassword($username, $password) {
+		$this->featureContext->iLogout();
+		$this->iLoginWithUsernameAndPassword($username, $password);
+	}
+
+	/**
 	 * @When I login with username :username and password :password
 	 * @param string $username
 	 * @param string $password
 	 * @return void
 	 */
 	public function iLoginWithUsernameAndPassword($username, $password) {
-		$this->filesPage = $this->loginPage->loginAs($username, $password);
-		$this->filesPage->waitTillPageIsLoaded($this->getSession());
+		$this->filesPage = $this->featureContext->loginAs($username, $password);
+	}
+
+	/**
+	 * @When I relogin with username :username and password :password to :server
+	 * @param string $username
+	 * @param string $password
+	 * @param string $server
+	 * @return void
+	 */
+	public function iReloginWithUsernameAndPasswordToSrv(
+		$username, $password, $server
+	) {
+		$this->featureContext->iLogout();
+		$this->iLoginWithUsernameAndPasswordToSrv($username, $password, $server);
 	}
 
 	/**
@@ -82,6 +109,7 @@ class LoginContext extends RawMinkContext implements Context {
 		);
 		$this->loginPage->open();
 		$this->iLoginWithUsernameAndPassword($username, $password);
+		$this->featureContext->setCurrentServer($server);
 	}
 
 	/**
@@ -107,12 +135,11 @@ class LoginContext extends RawMinkContext implements Context {
 		$password,
 		$page
 	) {
-		$this->expectedPage = $this->loginPage->loginAs(
+		$this->expectedPage = $this->featureContext->loginAs(
 			$username,
 			$password,
 			str_replace(' ', '', ucwords($page)) . 'Page'
 		);
-		$this->expectedPage->waitTillPageIsLoaded($this->getSession());
 	}
 
 	/**
@@ -120,11 +147,7 @@ class LoginContext extends RawMinkContext implements Context {
 	 * @return void
 	 */
 	public function iLoginAsARegularUserWithACorrectPassword() {
-		$this->filesPage = $this->loginPage->loginAs(
-			$this->featureContext->getRegularUserName(),
-			$this->featureContext->getRegularUserPassword()
-		);
-		$this->filesPage->waitTillPageIsLoaded($this->getSession());
+		$this->filesPage = $this->featureContext->loginAsARegularUser();
 	}
 
 	/**

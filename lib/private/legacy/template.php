@@ -19,7 +19,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -189,10 +189,12 @@ class OC_Template extends \OC\Template\Base {
 	 */
 	protected function findTemplate($theme, $app, $name) {
 		// Check if it is a app template or not.
-		if( $app !== '' && $app !== 'core' ) {
-			$dirs = $this->getAppTemplateDirs($theme, $app, OC::$SERVERROOT, OC_App::getAppPath($app));
-		} else {
+		if($app === '' || $app === 'core') {
 			$dirs = $this->getCoreTemplateDirs($theme, OC::$SERVERROOT);
+		} elseif ($app === 'settings') {
+			$dirs = $this->getSettingsTemplateDirs($theme, OC::$SERVERROOT);
+		} else {
+			$dirs = $this->getAppTemplateDirs($theme, $app, OC::$SERVERROOT, OC_App::getAppPath($app));
 		}
 
 		$locator = new \OC\Template\TemplateFileLocator( $dirs );

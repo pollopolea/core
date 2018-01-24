@@ -1703,7 +1703,7 @@
 		 * @param {int} urlSpec.x width
 		 * @param {int} urlSpec.y height
 		 * @param {String} urlSpec.file path to the file
-		 * @return preview URL
+		 * @return {String} preview URL
 		 */
 		generatePreviewUrl: function(urlSpec) {
 			urlSpec = urlSpec || {};
@@ -1718,7 +1718,16 @@
 			urlSpec.x = Math.ceil(urlSpec.x);
 			urlSpec.y = Math.ceil(urlSpec.y);
 			urlSpec.forceIcon = 0;
-			return OC.generateUrl('/core/preview.png?') + $.param(urlSpec);
+			var parts = urlSpec.file.split('/');
+			var encoded = [];
+			for (var i = 0; i < parts.length; i++) {
+				encoded.push(encodeURIComponent(parts[i]));
+			}
+			var file = encoded.join('/');
+			delete urlSpec.file;
+			urlSpec.preview = 1;
+
+			return OC.linkToRemoteBase('dav') + '/files/' + OC.getCurrentUser().uid + file + '?' + $.param(urlSpec);
 		},
 
 		/**
@@ -1942,7 +1951,7 @@
 						if (status === 412) {
 							// TODO: some day here we should invoke the conflict dialog
 							OC.Notification.show(t('files', 'Could not move "{file}", target exists', 
-								{file: fileName}), {type: 'error'}
+								{file: fileName}, null, {escape: false}), {type: 'error'}
 							);
 						} else {
 							OC.Notification.show(t('files', 'Could not move "{file}"', 
@@ -2045,10 +2054,16 @@
 						self.showFileBusyState(tr, true);
 						tr.attr('data-file', newName);
 						var basename = newName;
-						if (newName.indexOf('.') > 0 && tr.data('type') !== 'dir') {
-							basename = newName.substr(0, newName.lastIndexOf('.'));
+						if (tr.data('type') !== 'dir') {
+							var extension = '';
+							if (newName.indexOf('.') > 0) {
+								var lastDotIndex = newName.lastIndexOf('.');
+								basename = newName.substr(0, lastDotIndex);
+								extension = newName.substr(lastDotIndex);
+							}
+							td.find('a.name span.nametext span.extension').text(extension);
 						}
-						td.find('a.name span.nametext').text(basename);
+						td.find('a.name span.nametext span.innernametext').text(basename);
 						td.children('a.name').show();
 
 						var path = tr.attr('data-path') || self.getCurrentDirectory();

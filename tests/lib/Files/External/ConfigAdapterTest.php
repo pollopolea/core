@@ -2,7 +2,7 @@
 /**
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH.
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -20,19 +20,18 @@
  */
 namespace Test\Files\External;
 
-use OCP\Files\External\Service\IUserStoragesService;
-use OCP\Files\External\Service\IUserGlobalStoragesService;
-use OCP\IUser;
 use OC\Files\External\ConfigAdapter;
-use OCP\IConfig;
-use OC\Files\External\Service\UserStoragesService;
+use OC\Files\External\PersonalMount;
 use OC\Files\External\Service\UserGlobalStoragesService;
-use OCP\Files\External\IStorageConfig;
+use OC\Files\External\Service\UserStoragesService;
+use OC\Files\Storage\StorageFactory;
 use OCP\Files\External\Auth\AuthMechanism;
 use OCP\Files\External\Backend\Backend;
-use OC\Files\External\PersonalMount;
-use OC\Files\Mount\MountPoint;
-use OC\Files\Storage\StorageFactory;
+use OCP\Files\External\IStorageConfig;
+use OCP\Files\External\Service\IUserGlobalStoragesService;
+use OCP\Files\External\Service\IUserStoragesService;
+use OCP\IConfig;
+use OCP\IUser;
 
 class ConfigAdapterTest extends \Test\TestCase {
 

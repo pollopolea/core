@@ -4,7 +4,7 @@
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -90,7 +90,7 @@ class ExternalShareControllerTest extends \Test\TestCase {
 		$this->assertEquals(new JSONResponse(), $this->getExternalShareController()->create(4));
 
 		$this->assertSame('remoteshare.accepted', $called[0]);
-		$this->assertTrue($called[1] instanceof GenericEvent);
+		$this->assertInstanceOf(GenericEvent::class, $called[1]);
 	}
 
 	public function testDestroy() {
@@ -108,7 +108,7 @@ class ExternalShareControllerTest extends \Test\TestCase {
 		$this->assertEquals(new JSONResponse(), $this->getExternalShareController()->destroy(4));
 
 		$this->assertSame('remoteshare.declined', $called[0]);
-		$this->assertTrue($called[1] instanceof GenericEvent);
+		$this->assertInstanceOf(GenericEvent::class, $called[1]);
 	}
 
 	public function testRemoteWithValidHttps() {

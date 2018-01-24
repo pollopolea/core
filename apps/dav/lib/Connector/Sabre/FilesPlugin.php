@@ -11,7 +11,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -31,19 +31,20 @@
 namespace OCA\DAV\Connector\Sabre;
 
 use OC\AppFramework\Http\Request;
+use OCA\DAV\Files\IProvidesAdditionalHeaders;
 use OCP\Files\ForbiddenException;
-use Sabre\DAV\Exception\Forbidden;
-use Sabre\DAV\Exception\NotFound;
-use Sabre\DAV\IFile;
-use \Sabre\DAV\PropFind;
-use \Sabre\DAV\PropPatch;
-use Sabre\DAV\ServerPlugin;
-use Sabre\DAV\Tree;
-use \Sabre\HTTP\RequestInterface;
-use \Sabre\HTTP\ResponseInterface;
 use OCP\Files\StorageNotAvailableException;
 use OCP\IConfig;
 use OCP\IRequest;
+use Sabre\DAV\Exception\Forbidden;
+use Sabre\DAV\Exception\NotFound;
+use Sabre\DAV\IFile;
+use Sabre\DAV\PropFind;
+use Sabre\DAV\PropPatch;
+use Sabre\DAV\ServerPlugin;
+use Sabre\DAV\Tree;
+use Sabre\HTTP\RequestInterface;
+use Sabre\HTTP\ResponseInterface;
 
 class FilesPlugin extends ServerPlugin {
 
@@ -231,15 +232,18 @@ class FilesPlugin extends ServerPlugin {
 		// adds a 'Content-Disposition: attachment' header
 		if ($this->downloadAttachment) {
 			$filename = $node->getName();
+			if ($node instanceof IProvidesAdditionalHeaders) {
+				$filename = $node->getContentDispositionFileName();
+			}
 			if ($this->request->isUserAgent(
 				[
 					Request::USER_AGENT_IE,
 					Request::USER_AGENT_ANDROID_MOBILE_CHROME,
 					Request::USER_AGENT_FREEBOX,
 				])) {
-				$response->addHeader('Content-Disposition', 'attachment; filename="' . rawurlencode($filename) . '"');
+				$response->setHeader('Content-Disposition', 'attachment; filename="' . rawurlencode($filename) . '"');
 			} else {
-				$response->addHeader('Content-Disposition', 'attachment; filename*=UTF-8\'\'' . rawurlencode($filename)
+				$response->setHeader('Content-Disposition', 'attachment; filename*=UTF-8\'\'' . rawurlencode($filename)
 													 . '; filename="' . rawurlencode($filename) . '"');
 			}
 		}
@@ -254,6 +258,13 @@ class FilesPlugin extends ServerPlugin {
 			// disable nginx buffering so big downloads through ownCloud won't
 			// cause memory problems in the nginx process.
 			$response->addHeader('X-Accel-Buffering', 'no');
+		}
+
+		if ($node instanceof IProvidesAdditionalHeaders) {
+			$headers = $node->getHeaders();
+			if (is_array($headers)) {
+				$response->addHeaders($headers);
+			}
 		}
 	}
 

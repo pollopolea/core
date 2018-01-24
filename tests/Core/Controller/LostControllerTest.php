@@ -2,7 +2,7 @@
 /**
  * @author Lukas Reschke <lukas@owncloud.com>
  *
- * @copyright Copyright (c) 2015, ownCloud, Inc.
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -22,6 +22,7 @@
 namespace Tests\Core\Controller;
 
 use OC\Core\Controller\LostController;
+use OC\User\Session;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
@@ -33,15 +34,15 @@ use OCP\IUser;
 use OCP\IUserManager;
 use OCP\Mail\IMailer;
 use OCP\Security\ISecureRandom;
-use OC\User\Session;
 use PHPUnit_Framework_MockObject_MockObject;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Class LostControllerTest
  *
  * @package OC\Core\Controller
  */
-class LostControllerTest extends \PHPUnit_Framework_TestCase {
+class LostControllerTest extends TestCase {
 
 	/** @var LostController */
 	private $lostController;
@@ -63,9 +64,9 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 	private $secureRandom;
 	/** @var ITimeFactory | PHPUnit_Framework_MockObject_MockObject */
 	private $timeFactory;
-	/** @var IRequest */
+	/** @var IRequest | PHPUnit_Framework_MockObject_MockObject */
 	private $request;
-	/** @var ILogger */
+	/** @var ILogger | PHPUnit_Framework_MockObject_MockObject*/
 	private $logger;
 	/** @var Session */
 	private $userSession;
@@ -174,8 +175,6 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 
 
 	public function testResetFormExpiredToken() {
-		$userId = 'ValidTokenUser';
-		$token = '12345:TheOnlyAndOnlyOneTokenToResetThePassword';
 		$user = $this->getMockBuilder('\OCP\IUser')
 			->disableOriginalConstructor()->getMock();
 		$this->userManager
@@ -207,8 +206,6 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 	}
 
 	public function testResetFormValidToken() {
-		$userId = 'ValidTokenUser';
-		$token = '12345:TheOnlyAndOnlyOneTokenToResetThePassword';
 		$user = $this->getMockBuilder('\OCP\IUser')
 			->disableOriginalConstructor()->getMock();
 		$user
@@ -247,7 +244,7 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 		$this->assertEquals($expectedResponse, $response);
 	}
 
-	public function testEmailUnsucessful() {
+	public function testEmailUnsuccessful() {
 		$existingUser = 'ExistingUser1';
 		$nonExistingUser = 'NonExistingUser';
 		$this->userManager
@@ -257,6 +254,9 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 				[true, $existingUser],
 				[false, $nonExistingUser]
 			]));
+		$this->userManager->expects($this->any())
+			->method('getByEmail')
+			->willReturn([]);
 
 		// With a non existing user
 		$response = $this->lostController->email($nonExistingUser);

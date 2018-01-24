@@ -2,7 +2,7 @@
 /**
  * @author Lukas Reschke <lukas@owncloud.com>
  *
- * @copyright Copyright (c) 2015, ownCloud, Inc.
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -22,7 +22,9 @@
 namespace Tests\Settings\Controller;
 
 use GuzzleHttp\Exception\ClientException;
+use OC\IntegrityCheck\Checker;
 use OC\Settings\Controller\CheckSetupController;
+use OC_Util;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataDisplayResponse;
 use OCP\AppFramework\Http\DataResponse;
@@ -32,9 +34,7 @@ use OCP\IConfig;
 use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IURLGenerator;
-use OC_Util;
 use Test\TestCase;
-use OC\IntegrityCheck\Checker;
 
 /**
  * Class CheckSetupControllerTest
@@ -355,6 +355,7 @@ class CheckSetupControllerTest extends TestCase {
 				'isCorrectMemcachedPHPModuleInstalled' => true,
 				'hasPassedCodeIntegrityCheck' => null,
 				'codeIntegrityCheckerDocumentation' => null,
+				'hasDebugMode' => null,
 			]
 		);
 		$this->assertEquals($expected, $this->checkSetupController->check());

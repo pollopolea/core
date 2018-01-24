@@ -2,7 +2,7 @@
 /**
  * @author Victor Dubiniuk <dubiniuk@owncloud.com>
  *
- * @copyright Copyright (c) 2015, ownCloud, Inc.
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 
 namespace Test\IntegrityCheck\Iterator;
 
-use \OC\IntegrityCheck\Iterator\ExcludeFileByNameFilterIterator;
+use OC\IntegrityCheck\Iterator\ExcludeFileByNameFilterIterator;
 use Test\TestCase;
 
 class ExcludeFileByNameFilterIteratorTest extends TestCase {

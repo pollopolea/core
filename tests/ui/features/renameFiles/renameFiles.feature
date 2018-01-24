@@ -1,5 +1,8 @@
 @insulated
-Feature: renameFiles
+Feature: rename files
+As a user
+I want to rename files
+So that I can organise my data structure
 
 	Background:
 		Given a regular user exists
@@ -24,7 +27,7 @@ Feature: renameFiles
 		Then the file <to_name> should be listed
 		Examples:
 		|from_name                            |to_name                              |
-		|"strängé filename (duplicate #2).txt"|"strängé filename (duplicate #3).txt"|
+		|"strängé filename (duplicate #2 &).txt"|"strängé filename (duplicate #3).txt"|
 		|"'single'quotes.txt"                 |"single-quotes.txt"                  |
 
 	Scenario: Rename a file using special characters and check its existence after page reload
@@ -40,6 +43,9 @@ Feature: renameFiles
 		When I rename the file 'no-double-quotes.txt' to "hash#And&QuestionMark?At@Filename.txt"
 		And the files page is reloaded
 		Then the file "hash#And&QuestionMark?At@Filename.txt" should be listed
+		When I rename the file 'zzzz-must-be-last-file-in-folder.txt' to "aaaaaa.txt"
+		And the files page is reloaded
+		Then the file "aaaaaa.txt" should be listed
 
 	Scenario: Rename a file using spaces at front and/or back of file name and type
 		When I rename the file "lorem.txt" to " space at start"
@@ -118,4 +124,3 @@ Feature: renameFiles
 	Scenario: Rename a file to .part
 		When I rename the file "data.zip" to "data.part"
 		Then near the file "data.zip" a tooltip with the text '"data.part" has a forbidden file type/extension.' should be displayed
-

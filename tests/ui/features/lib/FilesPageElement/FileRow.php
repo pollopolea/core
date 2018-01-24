@@ -4,7 +4,7 @@
  * ownCloud
  *
  * @author Artur Neumann <artur@jankaritech.com>
- * @copyright 2017 Artur Neumann artur@jankaritech.com
+ * @copyright Copyright (c) 2017 Artur Neumann artur@jankaritech.com
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -23,9 +23,10 @@
 
 namespace Page\FilesPageElement;
 
+use Behat\Mink\Session;
+use Behat\Mink\Element\NodeElement;
 use Page\OwncloudPage;
 use SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException;
-use Behat\Mink\Element\NodeElement;
 
 /**
  * Object of a row on the FilesPage
@@ -74,6 +75,16 @@ class FileRow extends OwnCloudPage {
 	}
 
 	/**
+	 * checks if the file row is busy,
+	 * for example waiting for a rename to be finished
+	 *
+	 * @return boolean
+	 */
+	public function isBusy() {
+		return $this->rowElement->hasClass('busy');
+	}
+
+	/**
 	 * finds the Action Button
 	 *
 	 * @return \Behat\Mink\Element\NodeElement
@@ -89,6 +100,7 @@ class FileRow extends OwnCloudPage {
 				" xpath $this->fileActionMenuBtnXpath could not find actionButton in fileRow"
 			);
 		}
+		$actionButton->focus();
 		return $actionButton;
 	}
 
@@ -105,15 +117,17 @@ class FileRow extends OwnCloudPage {
 	/**
 	 * opens the file action menu
 	 *
+	 * @param Session $session
 	 * @throws \SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException
 	 * @return FileActionsMenu
 	 */
-	public function openFileActionsMenu() {
+	public function openFileActionsMenu(Session $session) {
 		$this->clickFileActionButton();
 		$filesPage = $this->getPage('FilesPage');
 		$actionMenuElement = $filesPage->findFileActionMenuElement();
 		$actionMenu = $this->getPage('FilesPageElement\\FileActionsMenu');
 		$actionMenu->setElement($actionMenuElement);
+		$this->waitForScrollingToFinish($session, '#app-content');
 		return $actionMenu;
 	}
 
@@ -131,6 +145,7 @@ class FileRow extends OwnCloudPage {
 				" xpath $this->shareBtnXpath could not find sharing button in fileRow"
 			);
 		}
+		$shareBtn->focus();
 		return $shareBtn;
 	}
 
@@ -169,10 +184,11 @@ class FileRow extends OwnCloudPage {
 	 * renames the file
 	 *
 	 * @param string $toName
+	 * @param Session $session
 	 * @return void
 	 */
-	public function rename($toName) {
-		$actionMenu = $this->openFileActionsMenu();
+	public function rename($toName, Session $session) {
+		$actionMenu = $this->openFileActionsMenu($session);
 		$actionMenu->rename();
 		$this->waitTillElementIsNotNull($this->fileRenameInputXpath);
 		$inputField = $this->findRenameInputField();
@@ -184,10 +200,11 @@ class FileRow extends OwnCloudPage {
 	/**
 	 * deletes the file
 	 *
+	 * @param Session $session
 	 * @return void
 	 */
-	public function delete() {
-		$actionMenu = $this->openFileActionsMenu();
+	public function delete(Session $session) {
+		$actionMenu = $this->openFileActionsMenu($session);
 		$actionMenu->delete();
 		$this->waitTillElementIsNull($this->fileBusyIndicatorXpath);
 	}

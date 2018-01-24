@@ -4,7 +4,7 @@
  *
  * @author Sergio Bertolin <sbertolin@owncloud.com>
  * @author Phillip Davis <phil@jankaritech.com>
- * @copyright 2017 ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -21,9 +21,6 @@
  *
  */
 
-use Behat\Behat\Context\Context;
-use Behat\Behat\Context\SnippetAcceptingContext;
-
 require __DIR__ . '/../../../../lib/composer/autoload.php';
 require_once 'bootstrap.php';
 
@@ -31,7 +28,7 @@ require_once 'bootstrap.php';
 /**
  * Features context.
  */
-class FeatureContext implements Context, SnippetAcceptingContext {
+class FeatureContext extends \rdx\behatvars\BehatVariablesContext {
 	use BasicStructure;
 
 	/**

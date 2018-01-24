@@ -3,7 +3,7 @@
  * ownCloud
  *
  * @author Artur Neumann <artur@jankaritech.com>
- * @copyright 2017 Artur Neumann artur@jankaritech.com
+ * @copyright Copyright (c) 2017 Artur Neumann artur@jankaritech.com
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -22,10 +22,10 @@
 
 namespace Page;
 
+use Behat\Mink\Session;
+use Page\FilesPageElement\SharingDialog;
 use SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException;
 use SensioLabs\Behat\PageObjectExtension\PageObject\Exception\UnexpectedPageException;
-use Page\FilesPageElement\SharingDialog;
-use Behat\Mink\Session;
 use WebDriver\Exception\NoSuchElement;
 use WebDriver\Key;
 
@@ -43,7 +43,9 @@ class FilesPage extends FilesPageBasic {
 	protected $newFileFolderButtonXpath = './/*[@id="controls"]//a[@class="button new"]';
 	protected $newFolderButtonXpath = './/div[contains(@class, "newFileMenu")]//a[@data-templatename="New folder"]';
 	protected $newFolderNameInputLabel = 'New folder';
-
+	protected $newFolderTooltipXpath = './/div[contains(@class, "newFileMenu")]//div[@class="tooltip-inner"]';
+	protected $fileUploadInputId = "file_upload_start";
+	protected $uploadProgressbarLabelXpath = "//div[@id='uploadprogressbar']/em";
 	private $strForNormalFileName = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
 
 	/**
@@ -78,18 +80,23 @@ class FilesPage extends FilesPageBasic {
 	 * create a folder with the given name.
 	 * If name is not given a random one is chosen
 	 *
+	 * @param Session $session
 	 * @param string $name
-	 * @throws ElementNotFoundException
+	 * @param int $timeoutMsec
+	 * @throws ElementNotFoundException|\Exception
 	 * @return string name of the created file
 	 */
-	public function createFolder($name = null) {
+	public function createFolder(
+		Session $session, $name = null,
+		$timeoutMsec = STANDARDUIWAITTIMEOUTMILLISEC
+	) {
 		if (is_null($name)) {
 			$name = substr(str_shuffle($this->strForNormalFileName), 0, 8);
 		}
 
 		$newButtonElement = $this->find("xpath", $this->newFileFolderButtonXpath);
 
-		if ($newButtonElement === null) {
+		if (is_null($newButtonElement)) {
 			throw new ElementNotFoundException(
 				__METHOD__ .
 				" xpath $this->newFileFolderButtonXpath " .
@@ -101,7 +108,7 @@ class FilesPage extends FilesPageBasic {
 
 		$newFolderButtonElement = $this->find("xpath", $this->newFolderButtonXpath);
 
-		if ($newFolderButtonElement === null) {
+		if (is_null($newFolderButtonElement)) {
 			throw new ElementNotFoundException(
 				__METHOD__ .
 				" xpath $this->newFolderButtonXpath " .
@@ -131,7 +138,70 @@ class FilesPage extends FilesPageBasic {
 			// Used to work fine in 1.3.1 but now throws this exception
 			// Actually all that we need does happen, so we just don't do anything
 		}
+		$timeoutMsec = (int) $timeoutMsec;
+		$currentTime = microtime(true);
+		$end = $currentTime + ($timeoutMsec / 1000);
+
+		while ($currentTime <= $end) {
+			$newFolderButton = $this->find("xpath", $this->newFolderButtonXpath);
+			if ($newFolderButton === null || !$newFolderButton->isVisible()) {
+				break;
+			}
+			usleep(STANDARDSLEEPTIMEMICROSEC);
+			$currentTime = microtime(true);
+		}
+		while ($currentTime <= $end) {
+			try {
+				$this->findFileRowByName($name, $session);
+				break;
+			} catch (ElementNotFoundException $e) {
+				//loop around
+			}
+			usleep(STANDARDSLEEPTIMEMICROSEC);
+			$currentTime = microtime(true);
+		}
+
+		if ($currentTime > $end) {
+			throw new \Exception("could not create folder");
+		}
 		return $name;
+	}
+
+	/**
+	 * 
+	 * @throws ElementNotFoundException
+	 * @return string
+	 */
+	public function getCreateFolderTooltip() {
+		$newFolderTooltip = $this->find("xpath", $this->newFolderTooltipXpath);
+		if (is_null($newFolderTooltip)) {
+			throw new ElementNotFoundException(
+				__METHOD__ .
+				" xpath $this->newFolderTooltipXpath " .
+				"could not find tooltip"
+			);
+		}
+		return $newFolderTooltip->getText();
+	}
+
+	/**
+	 *
+	 * @param Session $session
+	 * @param string $name
+	 * @return void
+	 */
+	public function uploadFile(Session $session, $name) {
+		$uploadField = $this->findById($this->fileUploadInputId);
+		if (is_null($uploadField)) {
+			throw new ElementNotFoundException(
+				__METHOD__ .
+				" id $this->fileUploadInputId " .
+				"could not find file upload input field"
+			);
+		}
+		$uploadField->attachFile(getenv("FILES_FOR_UPLOAD") . $name);
+		$this->waitForAjaxCallsToStartAndFinish($session, 20000);
+		$this->waitForUploadProgressbarToFinish();
 	}
 
 	/**
@@ -180,9 +250,10 @@ class FilesPage extends FilesPageBasic {
 		for ($counter = 0; $counter < $maxRetries; $counter++) {
 			try {
 				$fileRow = $this->findFileRowByName($fromFileName, $session);
-				$fileRow->rename($toFileName);
+				$fileRow->rename($toFileName, $session);
 				break;
 			} catch (\Exception $e) {
+				$this->closeFileActionsMenu();
 				error_log(
 					"Error while renaming file"
 					. "\n-------------------------\n"
@@ -196,6 +267,8 @@ class FilesPage extends FilesPageBasic {
 			echo $message;
 			error_log($message);
 		}
+
+		$this->waitTillFileRowsAreReady($session);
 	}
 
 	/**
@@ -213,22 +286,13 @@ class FilesPage extends FilesPageBasic {
 		$toMoveFileRow = $this->findFileRowByName($name, $session);
 		$destinationFileRow = $this->findFileRowByName($destination, $session);
 
-		$session->executeScript(
-			'
-			jQuery.countXHRRequests = 0;
-			(function(open) {
-				XMLHttpRequest.prototype.open = function(method, url, async, user, pass) {
-					jQuery.countXHRRequests++;
-					open.call(this, method, url, async, user, pass);
-				};
-			})(XMLHttpRequest.prototype.open);
-			'
-		);
-
+		$this->initAjaxCounters($session);
+		$this->resetSumStartedAjaxRequests($session);
+		
 		for ($retryCounter = 0; $retryCounter < $maxRetries; $retryCounter++) {
 			$toMoveFileRow->findFileLink()->dragTo($destinationFileRow->findFileLink());
 			$this->waitForAjaxCallsToStartAndFinish($session);
-			$countXHRRequests = $session->evaluateScript("jQuery.countXHRRequests");
+			$countXHRRequests = $this->getSumStartedAjaxRequests($session);
 			if ($countXHRRequests === 0) {
 				error_log("Error while moving file");
 			} else {
@@ -286,5 +350,33 @@ class FilesPage extends FilesPageBasic {
 		}
 		$this->verifyPage();
 		return $this;
+	}
+
+	/**
+	 * waits till the upload progressbar is not visible anymore
+	 * 
+	 * @throws ElementNotFoundException
+	 * @return void
+	 */
+	public function waitForUploadProgressbarToFinish() {
+		$uploadProgressbar = $this->find(
+			"xpath", $this->uploadProgressbarLabelXpath
+		);
+		if (is_null($uploadProgressbar)) {
+			throw new ElementNotFoundException(
+				__METHOD__ .
+				" xpath $this->uploadProgressbarLabelXpath " .
+				"could not find upload progressbar"
+			);
+		}
+		$currentTime = microtime(true);
+		$end = $currentTime + (STANDARDUIWAITTIMEOUTMILLISEC / 1000);
+		while ($uploadProgressbar->isVisible()) {
+			if ($currentTime > $end) {
+				break;
+			}
+			usleep(STANDARDSLEEPTIMEMICROSEC);
+			$currentTime = microtime(true);
+		}
 	}
 }

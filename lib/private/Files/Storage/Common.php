@@ -19,7 +19,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -694,8 +694,11 @@ abstract class Common implements Storage, ILockingStorage, IVersionedStorage {
 		}
 		list ($uid, $filename) =  $this->convertInternalPathToGlobalPath($internalPath);
 
-		return array_values(
-			\OCA\Files_Versions\Storage::getVersions($uid, $filename));
+		return array_map(function ($version) use ($internalPath) {
+			$version['mimetype'] = $this->getMimeType($internalPath);
+			return $version;
+		}, array_values(
+			\OCA\Files_Versions\Storage::getVersions($uid, $filename)));
 	}
 
 	/**
@@ -730,9 +733,14 @@ abstract class Common implements Storage, ILockingStorage, IVersionedStorage {
 	public function restoreVersion($internalPath, $versionId) {
 		// KISS implementation
 		if (!\OC_App::isEnabled('files_versions')) {
-			return;
+			return false;
 		}
-		list ($uid, $filename) =  $this->convertInternalPathToGlobalPath($internalPath);
-		\OCA\Files_Versions\Storage::rollback($filename, $versionId);
+		$v = $this->getVersion($internalPath, $versionId);
+		return \OCA\Files_Versions\Storage::restoreVersion($v['owner'], $v['path'], $v['storage_location'], $versionId);
+	}
+
+	public function saveVersion($internalPath) {
+		// returning false here will trigger the fallback implementation
+		return false;
 	}
 }

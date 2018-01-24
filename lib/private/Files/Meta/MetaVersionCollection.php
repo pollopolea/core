@@ -2,7 +2,7 @@
 /**
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -79,13 +79,15 @@ class MetaVersionCollection extends AbstractFolder {
 		if (!$storage->instanceOfStorage(IVersionedStorage::class)) {
 			return [];
 		}
-		$mimeType = $view->getMimeType($path);
 		/** @var IVersionedStorage | Storage $storage */
 		$versions = $storage->getVersions($internalPath);
-		return array_map(function($version) use ($storage, $internalPath, $mimeType) {
-			$version['mime-type'] = isset($version['mime-type']) ? $version['mime-type'] : $mimeType;
+		return array_values(array_map(function($version) use ($storage, $internalPath, $view, $path) {
+			if (!isset($version['mimetype'])) {
+				$version['mimetype'] = $view->getMimeType($path);
+			}
+
 			return new MetaFileVersionNode($this, $this->root, $version, $storage, $internalPath);
-		}, $versions);
+		}, $versions));
 	}
 
 	/**
@@ -109,6 +111,9 @@ class MetaVersionCollection extends AbstractFolder {
 		if ($version === null) {
 			throw new NotFoundException();
 		}
+		if (!isset($version['mimetype'])) {
+			$version['mimetype'] = $view->getMimeType($path);
+		}
 		return new MetaFileVersionNode($this, $this->root, $version, $storage, $internalPath);
 	}
 
@@ -121,5 +126,9 @@ class MetaVersionCollection extends AbstractFolder {
 
 	public function getName() {
 		return "v";
+	}
+
+	public function getPath() {
+		return "/meta/{$this->fileId}/v";
 	}
 }

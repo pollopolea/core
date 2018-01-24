@@ -2,7 +2,7 @@
 /**
  * @author Philipp Schaffrath <github@philipp.schaffrath.email>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -23,6 +23,8 @@ use OCP\Theme\IThemeService;
 
 class ThemeService implements IThemeService {
 
+	const DEFAULT_THEME_PATH = '/themes/default';
+
 	/**
 	 * @var Theme
 	 */
@@ -35,10 +37,9 @@ class ThemeService implements IThemeService {
 	 * ThemeService constructor.
 	 *
 	 * @param string $themeName
-	 * @param string $defaultThemeDirectory
 	 */
-	public function __construct($themeName = '', $defaultThemeDirectory = '') {
-		$this->setDefaultThemeDirectory($defaultThemeDirectory);
+	public function __construct($themeName = '') {
+		$this->defaultThemeDirectory = \OC::$SERVERROOT . self::DEFAULT_THEME_PATH;
 
 		if ($themeName === '' && $this->defaultThemeExists()) {
 			$themeName = 'default';
@@ -48,25 +49,10 @@ class ThemeService implements IThemeService {
 	}
 
 	/**
-	 * @param string $defaultThemeDirectory
-	 */
-	private function setDefaultThemeDirectory($defaultThemeDirectory = '') {
-		if ($defaultThemeDirectory === '') {
-			$this->defaultThemeDirectory = \OC::$SERVERROOT . '/themes/default';
-		} else {
-			$this->defaultThemeDirectory = $defaultThemeDirectory;
-		}
-	}
-
-	/**
 	 * @return bool
 	 */
-	private function defaultThemeExists() {
-		if (is_dir($this->defaultThemeDirectory)) {
-			return true;
-		}
-
-		return false;
+	public function defaultThemeExists() {
+		return is_dir($this->defaultThemeDirectory);
 	}
 
 	/**

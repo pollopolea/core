@@ -15,7 +15,7 @@
  * @author Tom Needham <tom@owncloud.com>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -48,7 +48,7 @@ use OCP\AppFramework\Http;
  * @author Tom Needham <tom@owncloud.com>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2015, ownCloud, Inc.
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -309,22 +309,24 @@ class OC_API {
 				// User required
 				return self::loginUser();
 			case API::SUBADMIN_AUTH:
-				// Check for subadmin
+				// Check for subadmin privilages
 				$user = self::loginUser();
 				if(!$user) {
 					return false;
 				} else {
-					$userObject = \OC::$server->getUserSession()->getUser();
-					if($userObject === null) {
-						return false;
-					}
-					$isSubAdmin = \OC::$server->getGroupManager()->getSubAdmin()->isSubAdmin($userObject);
-					$admin = OC_User::isAdminUser($user);
-					if($isSubAdmin || $admin) {
+					// Check whether user is an admin, since admin has
+					// subadmin privileges
+					if (OC_User::isAdminUser($user)) {
 						return true;
-					} else {
-						return false;
 					}
+
+					// Check whether user is a subadmin
+					$userObject = \OC::$server->getUserSession()->getUser();
+					if($userObject != null && \OC::$server->getGroupManager()->getSubAdmin()->isSubAdmin($userObject)) {
+						return true;
+					}
+
+					return false;
 				}
 			case API::ADMIN_AUTH:
 				// Check for admin
@@ -350,28 +352,31 @@ class OC_API {
 		}
 
 		// reuse existing login
-		$loggedIn = \OC::$server->getUserSession()->isLoggedIn();
+		$userSession = \OC::$server->getUserSession();
+		$request = \OC::$server->getRequest();
+		$loggedIn = $userSession->isLoggedIn();
 		if ($loggedIn === true) {
 			if (\OC::$server->getTwoFactorAuthManager()->needsSecondFactor()) {
 				// Do not allow access to OCS until the 2FA challenge was solved successfully
 				return false;
 			}
-			$ocsApiRequest = isset($_SERVER['HTTP_OCS_APIREQUEST']) ? $_SERVER['HTTP_OCS_APIREQUEST'] === 'true' : false;
-			if ($ocsApiRequest) {
+			if ($userSession->verifyAuthHeaders($request)) {
+				$ocsApiRequest = isset($_SERVER['HTTP_OCS_APIREQUEST']) ? $_SERVER['HTTP_OCS_APIREQUEST'] === 'true' : false;
+				if ($ocsApiRequest) {
 
-				// initialize the user's filesystem
-				\OC_Util::setupFS(\OC_User::getUser());
-				self::$isLoggedIn = true;
+					// initialize the user's filesystem
+					\OC_Util::setupFS(\OC_User::getUser());
+					self::$isLoggedIn = true;
 
-				return OC_User::getUser();
+					return OC_User::getUser();
+				}
+
+				return false;
 			}
-			return false;
 		}
 
 		// basic auth - because OC_User::login will create a new session we shall only try to login
 		// if user and pass are set
-		$userSession = \OC::$server->getUserSession();
-		$request = \OC::$server->getRequest();
 		try {
 			if (OC_User::handleApacheAuth()) {
 				self::$logoutRequired = false;

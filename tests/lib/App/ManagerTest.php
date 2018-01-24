@@ -21,6 +21,7 @@ use OCP\IUser;
 use OCP\IUserSession;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Test\TestCase;
+use org\bovigo\vfs\vfsStream;
 
 /**
  * Class Manager
@@ -123,11 +124,34 @@ class ManagerTest extends TestCase {
 		$this->assertEquals('yes', $this->appConfig->getValue('files_trashbin', 'enabled', 'no'));
 	}
 
+	/**
+	 * @expectedException \OCP\App\AppManagerException
+	 */
+	public function testEnableSecondAppTheme() {
+		$manager = $this->getMockBuilder(AppManager::class)
+			->setMethods(['isTheme', 'getAppInfo'])
+			->setConstructorArgs([$this->userSession, $this->appConfig,
+				$this->groupManager, $this->cacheFactory, $this->eventDispatcher,
+				$this->config])
+			->getMock();
+
+		$manager->expects($this->once())
+			->method('getAppInfo')
+			->willReturn(['types'=>['theme']]);
+
+		$manager->expects($this->once())
+			->method('isTheme')
+			->willReturn(true);
+
+		$manager->enableApp('dav');
+	}
+
 	public function testDisableApp() {
 		$this->expectClearCache();
 		$this->manager->disableApp('files_trashbin');
 		$this->assertEquals('no', $this->appConfig->getValue('files_trashbin', 'enabled', 'no'));
 	}
+
 	/**
 	 * @expectedException \Exception
 	 */
@@ -436,5 +460,73 @@ class ManagerTest extends TestCase {
 			[true, 'single-instance'],
 			[false, 'clustered-instance'],
 		];
+	}
+
+	/**
+	 * @dataProvider appInfoDataProvider
+	 *
+	 * @param string $firstDirVersion
+	 * @param string $secondDirVersion
+	 * @param bool $isFirstWinner
+	 */
+	public function testTheMostRecentAppIsFound($firstDirVersion, $secondDirVersion, $isFirstWinner) {
+		$appId = 'bogusapp';
+		$appsParentDir = vfsStream::setup();
+		$firstAppDir = vfsStream::newDirectory('apps')->at($appsParentDir);
+		$appDir1 = vfsStream::newDirectory($appId)->at($firstAppDir);
+		$secondAppDir = vfsStream::newDirectory('apps2')->at($appsParentDir);
+		$appDir2 = vfsStream::newDirectory($appId)->at($secondAppDir);
+
+		$appManager = $this->getMockBuilder(AppManager::class)
+			->setMethods(['getAppVersionByPath', 'getAppRoots'])
+			->disableOriginalConstructor()
+			->getMock();
+
+		$appManager->expects($this->any())
+			->method('getAppRoots')
+			->willReturn([
+				[
+					'path' => $firstAppDir->url(),
+					'url' => $firstAppDir->url(),
+				],
+				[
+					'path' => $secondAppDir->url(),
+					'url' => $secondAppDir->url(),
+				]
+			]);
+
+		$appManager->expects($this->any())
+			->method('getAppVersionByPath')
+			->will($this->onConsecutiveCalls($firstDirVersion, $secondDirVersion));
+
+		$expected = $isFirstWinner ? $appDir1->url() : $appDir2->url();
+		$appPath = $appManager->getAppPath($appId);
+		$this->assertEquals($expected, $appPath);
+	}
+
+	public function appInfoDataProvider() {
+		return [
+			[ '1.2.3', '3.2.4', false ],
+			[ '2.2.3', '2.2.1', true ]
+		];
+	}
+
+	public function testPathIsNotCachedForNotFoundApp() {
+		$appId = 'notexistingapp';
+
+		$appManager = $this->getMockBuilder(AppManager::class)
+			->setMethods(['getAppVersionByPath', 'getAppRoots', 'saveAppPath'])
+			->disableOriginalConstructor()
+			->getMock();
+
+		$appManager->expects($this->any())
+			->method('getAppRoots')
+			->willReturn([]);
+
+		$appManager->expects($this->never())
+			->method('saveAppPath');
+
+		$appPath = $appManager->getAppPath($appId);
+		$this->assertFalse($appPath);
 	}
 }

@@ -2,7 +2,7 @@
 /**
  * @author Lukas Reschke <lukas@owncloud.com>
  *
- * @copyright Copyright (c) 2015, ownCloud, Inc.
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -22,12 +22,12 @@
 namespace Test\Share;
 
 use OC\Share\MailNotifications;
+use OCP\Defaults;
 use OCP\IL10N;
+use OCP\ILogger;
+use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\Mail\IMailer;
-use OCP\ILogger;
-use OCP\Defaults;
-use OCP\IURLGenerator;
 use OCP\Util;
 use Test\TestCase;
 

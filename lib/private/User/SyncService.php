@@ -2,7 +2,7 @@
 /**
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -148,7 +148,10 @@ class SyncService {
 			}
 		}
 		if ($this->backend instanceof IProvidesQuotaBackend) {
-			$a->setQuota($this->backend->getQuota($uid));
+			$quota = $this->backend->getQuota($uid);
+			if ($quota !== null) {
+				$a->setQuota($quota);
+			}
 		} else {
 			list($hasKey, $value) = $this->readUserConfig($uid, 'files', 'quota');
 			if ($hasKey) {

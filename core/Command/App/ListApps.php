@@ -5,7 +5,7 @@
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Victor Dubiniuk <dubiniuk@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -49,17 +49,17 @@ class ListApps extends Base {
 
 		$this
 			->setName('app:list')
-			->setDescription('List all available apps')
+			->setDescription('List all available apps.')
 			->addArgument(
 				'search-pattern',
 				InputArgument::OPTIONAL,
-				'Restrict the list of apps to those whose name matches the given regular expression'
+				'Restrict the list of apps to those whose name matches the given regular expression.'
 			)
 			->addOption(
 				'shipped',
 				null,
 				InputOption::VALUE_REQUIRED,
-				'true - limit to shipped apps only, false - limit to non-shipped apps only'
+				'true - limit to shipped apps only, false - limit to non-shipped apps only.'
 			)
 		;
 	}

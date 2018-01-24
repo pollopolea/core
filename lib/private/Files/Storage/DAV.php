@@ -13,7 +13,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -41,13 +41,11 @@ use Icewind\Streams\IteratorDirectory;
 use OC\Memcache\ArrayCache;
 use OCP\AppFramework\Http;
 use OCP\Constants;
-use OCP\Files;
 use OCP\Files\FileInfo;
 use OCP\Files\StorageInvalidException;
 use OCP\Files\StorageNotAvailableException;
 use OCP\Util;
 use Sabre\DAV\Xml\Property\ResourceType;
-use Sabre\HTTP\ClientException;
 use Sabre\HTTP\ClientHttpException;
 use Sabre\DAV\Exception\InsufficientStorage;
 use OCA\DAV\Connector\Sabre\Exception\Forbidden;

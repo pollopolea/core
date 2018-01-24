@@ -3,7 +3,7 @@
  * ownCloud
  *
  * @author Artur Neumann <artur@jankaritech.com>
- * @copyright 2017 Artur Neumann artur@jankaritech.com
+ * @copyright Copyright (c) 2017 Artur Neumann artur@jankaritech.com
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -22,7 +22,9 @@
 
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Gherkin\Node\TableNode;
+use TestHelpers\DownloadHelper;
 use TestHelpers\SetupHelper;
+use TestHelpers\UserHelper;
 
 require_once 'bootstrap.php';
 
@@ -52,8 +54,7 @@ trait BasicStructure {
 	 */
 	public function iAmLoggedInAsAdmin() {
 		$this->loginPage->open();
-		$nextPage = $this->loginPage->loginAs("admin", "admin");
-		$nextPage->waitTillPageIsLoaded($this->getSession());
+		$this->loginAs("admin", $this->getUserPassword("admin"));
 	}
 
 	/**
@@ -62,11 +63,35 @@ trait BasicStructure {
 	 */
 	public function iAmLoggedInAsARegularUser() {
 		$this->loginPage->open();
+		$this->loginAsARegularUser();
+	}
+
+	/**
+	 * @return Page\OwncloudPage
+	 */
+	public function loginAsARegularUser() {
+		return $this->loginAs(
+			$this->getRegularUserName(),
+			$this->getRegularUserPassword()
+		);
+	}
+
+	/**
+	 * @param string $username
+	 * @param string $password
+	 * @param string $target
+	 * @return \Page\OwncloudPage
+	 */
+	public function loginAs($username, $password, $target = 'FilesPage') {
 		$nextPage = $this->loginPage->loginAs(
-			$this->regularUserName,
-			$this->regularUserPassword
+			$username,
+			$password,
+			$target
 		);
 		$nextPage->waitTillPageIsLoaded($this->getSession());
+		$this->setCurrentUser($username);
+		$this->setCurrentServer(null);
+		return $nextPage;
 	}
 
 	/**
@@ -77,35 +102,54 @@ trait BasicStructure {
 		$settingsMenu = $this->owncloudPage->openSettingsMenu();
 		$settingsMenu->logout();
 		$this->loginPage->waitTillPageIsLoaded($this->getSession());
-	}
-
-	/**
-	 * @Given a regular user exists
-	 * @return void
-	 */
-	public function aRegularUserExists() {
-		$this->createUser($this->regularUserName, $this->regularUserPassword);
-	}
-
-	/**
-	 * @Given regular users exist
-	 * @return void
-	 */
-	public function regularUsersExist() {
-		foreach ($this->regularUserNames as $user) {
-			$this->createUser($user, $this->regularUserPassword);
+		if ($this->filesContext !== null) {
+			$this->filesContext->resetFilesContext();
 		}
 	}
 
 	/**
-	 * @Given these users exist:
+	 * @Given /^a regular user exists\s?(but is not initialized|)$/
+	 * @param string $doNotInitialize just create the user, do not trigger creating skeleton files etc
+	 * @return void
+	 */
+	public function aRegularUserExists($doNotInitialize = "") {
+		$this->createUser(
+			$this->getRegularUserName(),
+			$this->getRegularUserPassword(),
+			null,
+			null,
+			($doNotInitialize === "")
+		);
+	}
+
+	/**
+	 * @Given /^regular users exist\s?(but are not initialized|)$/
+	 * @param string $doNotInitialize just create the user, do not trigger creating skeleton files etc
+	 * @return void
+	 */
+	public function regularUsersExist($doNotInitialize) {
+		foreach ($this->getRegularUserNames() as $user) {
+			$this->createUser(
+				$user,
+				$this->getRegularUserPassword(),
+				null,
+				null,
+				($doNotInitialize === "")
+			);
+		}
+	}
+
+	/**
+	 * @Given /^these users exist\s?(but are not initialized|):$/
 	 * expects a table of users with the heading
 	 * "|username|password|displayname|email|"
 	 * displayname & email are optional
+	 *
+	 * @param string $doNotInitialize just create the user, do not trigger creating skeleton files etc
 	 * @param TableNode $table
 	 * @return void
 	 */
-	public function theseUsersExist(TableNode $table) {
+	public function theseUsersExist($doNotInitialize, TableNode $table) {
 		foreach ($table as $row) {
 			if (isset($row['displayname'])) {
 				$displayName = $row['displayname'];
@@ -118,7 +162,11 @@ trait BasicStructure {
 				$email = null;
 			}
 			$this->createUser(
-				$row ['username'], $row ['password'], $displayName, $email
+				$row ['username'],
+				$row ['password'],
+				$displayName,
+				$email,
+				($doNotInitialize === "")
 			);
 		}
 	}
@@ -130,23 +178,62 @@ trait BasicStructure {
 	 * @param string $password
 	 * @param string $displayName
 	 * @param string $email
+	 * @param bool $initialize initialize the user skeleton files etc
+	 * @param string $method how to create the user api|occ
 	 * @return void
 	 * @throws Exception
 	 */
 	private function createUser(
-		$user, $password, $displayName = null, $email = null
+		$user, $password, $displayName = null, $email = null, $initialize = true,
+		$method = "api"
 	) {
 		$user = trim($user);
-		$result = SetupHelper::createUser(
-			$user, $password, $displayName, $email
-		);
-		if ($result["code"] != 0) {
-			throw new Exception(
-				"could not create user. "
-				. $result["stdOut"] . " " . $result["stdErr"]
+		$method = trim(strtolower($method));
+		$baseUrl = $this->getMinkParameter("base_url");
+		switch ($method) {
+			case "api":
+				$results = UserHelper::createUser(
+					$baseUrl, $user, $password, "admin",
+					$this->getUserPassword("admin"),
+					$displayName, $email
+				);
+				foreach ($results as $result) {
+					if ($result->getStatusCode() !== 200) {
+						throw new Exception(
+							"could not create user. "
+							. $result->getStatusCode() . " " . $result->getBody()
+						);
+					}
+				}
+				break;
+			case "occ":
+				$result = SetupHelper::createUser(
+					$user, $password, $displayName, $email
+				);
+				if ($result["code"] != 0) {
+					throw new Exception(
+						"could not create user. "
+						. $result["stdOut"] . " " . $result["stdErr"]
+					);
+				}
+				break;
+			default:
+				throw new InvalidArgumentException(
+					"Invalid method to create a user"
+				);
+		}
+
+		$this->addUserToCreatedUsersList($user, $password, $displayName, $email);
+		if ($initialize) {
+			// Download a skeleton file. That will force the server to fully
+			// initialize the user, including their skeleton files.
+			DownloadHelper::download(
+				$baseUrl,
+				$user,
+				$password,
+				"lorem.txt"
 			);
 		}
-		$this->addUserToCreatedUsersList($user, $password, $displayName, $email);
 	}
 
 	/**
@@ -183,17 +270,39 @@ trait BasicStructure {
 	 * creates a single group
 	 *
 	 * @param string $group
+	 * @param string $method how to create the group api|occ
 	 * @return void
 	 * @throws Exception
 	 */
-	private function createGroup($group) {
+	private function createGroup($group, $method = "api") {
 		$group = trim($group);
-		$result = SetupHelper::createGroup($group);
-		if ($result["code"] != 0) {
-			throw new Exception(
-				"could not create group. "
-				. $result["stdOut"] . " " . $result["stdErr"]
-			);
+		$method = trim(strtolower($method));
+		switch ($method) {
+			case "api":
+				$result = UserHelper::createGroup(
+					$this->getMinkParameter("base_url"),
+					$group, "admin", $this->getUserPassword("admin")
+				);
+				if ($result->getStatusCode() !== 200) {
+					throw new Exception(
+						"could not create group. "
+						. $result->getStatusCode() . " " . $result->getBody()
+					);
+				}
+				break;
+			case "occ":
+				$result = SetupHelper::createGroup($group);
+				if ($result["code"] != 0) {
+					throw new Exception(
+						"could not create group. "
+						. $result["stdOut"] . " " . $result["stdErr"]
+					);
+				}
+				break;
+			default:
+				throw new InvalidArgumentException(
+					"Invalid method to create a group"
+				);
 		}
 		$this->addGroupToCreatedGroupsList($group);
 	}
@@ -202,8 +311,8 @@ trait BasicStructure {
 	 * @return void
 	 */
 	public function aRegularUserIsInARegularGroup() {
-		$group = $this->regularGroupName;
-		$user = $this->regularUserName;
+		$group = $this->getRegularGroupName();
+		$user = $this->getRegularUserName();
 		if (!in_array($user, $this->getCreatedUserNames())) {
 			$this->aRegularUserExists();
 		}
@@ -214,16 +323,38 @@ trait BasicStructure {
 	 * @Given the user :user is in the group :group
 	 * @param string $user
 	 * @param string $group
+	 * @param string $method how to add the user to the group api|occ
 	 * @return void
 	 * @throws Exception
 	 */
-	public function theUserIsInTheGroup($user, $group) {
-		$result = SetupHelper::addUserToGroup($group, $user);
-		if ($result["code"] != 0) {
-			throw new Exception(
-				"could not add user to group. "
-				. $result["stdOut"] . " " . $result["stdErr"]
-			);
+	public function theUserIsInTheGroup($user, $group, $method = "api") {
+		$method = trim(strtolower($method));
+		switch ($method) {
+			case "api":
+				$result = UserHelper::addUserToGroup(
+					$this->getMinkParameter("base_url"), 
+					$user, $group, "admin", $this->getUserPassword("admin")
+				);
+				if ($result->getStatusCode() !== 200) {
+					throw new Exception(
+						"could not add user to group. "
+						. $result->getStatusCode() . " " . $result->getBody()
+					);
+				}
+				break;
+			case "occ":
+				$result = SetupHelper::addUserToGroup($group, $user);
+				if ($result["code"] != 0) {
+					throw new Exception(
+						"could not add user to group. "
+						. $result["stdOut"] . " " . $result["stdErr"]
+					);
+				}
+				break;
+			default:
+				throw new InvalidArgumentException(
+					"Invalid method to add a user to a group"
+				);
 		}
 	}
 
@@ -255,22 +386,35 @@ trait BasicStructure {
 	 * @AfterScenario
 	 */
 	public function tearDownScenarioDeleteCreatedUsersAndGroups() {
+		$baseUrl = $this->getMinkParameter("base_url");
 		foreach ($this->getCreatedUserNames() as $user) {
-			$result = SetupHelper::deleteUser($user);
-			if ($result["code"] != 0) {
-				throw new Exception(
-					"could not delete user. "
-					. $result["stdOut"] . " " . $result["stdErr"]
+			$result = UserHelper::deleteUser(
+				$baseUrl,
+				$user,
+				"admin",
+				$this->getUserPassword("admin")
+			);
+			
+			if ($result->getStatusCode() !== 200) {
+				error_log(
+					"INFORMATION: could not delete user. '" . $user . "'"
+					. $result->getStatusCode() . " " . $result->getBody()
 				);
 			}
 		}
 
 		foreach ($this->getCreatedGroupNames() as $group) {
-			$result = SetupHelper::deleteGroup($group);
-			if ($result["code"] != 0) {
-				throw new Exception(
-					"could not delete group. "
-					. $result["stdOut"] . " " . $result["stdErr"]
+			$result = UserHelper::deleteGroup(
+				$baseUrl,
+				$group,
+				"admin",
+				$this->getUserPassword("admin")
+			);
+			
+			if ($result->getStatusCode() !== 200) {
+				error_log(
+					"INFORMATION: could not delete group. '" . $group . "'"
+					. $result->getStatusCode() . " " . $result->getBody()
 				);
 			}
 		}

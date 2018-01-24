@@ -8,7 +8,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -81,12 +81,12 @@ if($linkedItem->getNodeType() === 'folder') {
 		\OCP\Util::writeLog('core-preview', 'Passed filename is not valid, might be malicious (file:"' . $file . '";ip:"' . \OC::$server->getRequest()->getRemoteAddress() . '")', \OCP\Util::WARN);
 		exit;
 	}
-	$sharedFile = \OC\Files\Filesystem::normalizePath($file);
+	$sharedFile = $node->get($file);
 }
 
 if($linkedItem->getNodeType() === 'file') {
 	$path = $node->getParent()->getPath();
-	$sharedFile = $node->getName();
+	$sharedFile = $node;
 }
 
 $path = ltrim(\OC\Files\Filesystem::normalizePath($path, false), '/');

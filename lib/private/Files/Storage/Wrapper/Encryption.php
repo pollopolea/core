@@ -7,7 +7,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -760,7 +760,7 @@ class Encryption extends Wrapper {
 		// first copy the keys that we reuse the existing file key on the target location
 		// and don't create a new one which would break versions for example.
 		$mount = $this->mountManager->findByStorageId($sourceStorage->getId());
-		if (count($mount) === 1) {
+		if (is_array($mount) && count($mount) === 1) {
 			$mountPoint = $mount[0]->getMountPoint();
 			$source = $mountPoint . '/' . $sourceInternalPath;
 			$target = $this->getFullPath($targetInternalPath);
@@ -793,6 +793,7 @@ class Encryption extends Wrapper {
 				fclose($source);
 				fclose($target);
 			} catch (\Exception $e) {
+				Encryption::setDisableWriteEncryption(false);
 				fclose($source);
 				fclose($target);
 				throw $e;

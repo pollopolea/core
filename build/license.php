@@ -2,7 +2,7 @@
 /**
  * @author Thomas Müller
  *
- * @copyright Copyright (c) 2015, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -111,6 +111,12 @@ With help from many libraries and frameworks including:
 		file_put_contents(__DIR__.'/../AUTHORS', $template);
 	}
 
+	/**
+	 * Update the license file
+	 *
+	 * @param string $path
+	 * @param string|bool $gitRoot
+	 */
 	function handleFile($path, $gitRoot) {
 		$source = file_get_contents($path);
 		if ($this->isMITLicensed($source)) {
@@ -177,15 +183,29 @@ With help from many libraries and frameworks including:
 		return implode(PHP_EOL, $lines);
 	}
 
+	/**
+	 * Retrieve a list of code contributors
+	 *
+	 * @param string $file
+	 * @param string|bool $gitRoot
+	 * @return string
+	 */
 	private function getAuthors($file, $gitRoot) {
 		// only add authors that changed code and not the license header
-		$licenseHeaderEndsAtLine = trim(shell_exec("grep -n '*/' $file | head -n 1 | cut -d ':' -f 1"));
+		$licenseHeaderEndsAtLine = trim(shell_exec(sprintf("grep -n '*/' %s | head -n 1 | cut -d ':' -f 1", escapeshellarg($file))));
+
 		$buildDir = getcwd();
 		if ($gitRoot) {
 			chdir($gitRoot);
 			$file = substr($file, strlen($gitRoot));
 		}
-		$out = shell_exec("git blame --line-porcelain -L $licenseHeaderEndsAtLine, $file | sed -n 's/^author //p;s/^author-mail //p' | sed 'N;s/\\n/ /' | sort -f | uniq");
+
+		$out = shell_exec(
+			sprintf("git blame --line-porcelain -L %d, %s | sed -n 's/^author //p;s/^author-mail //p' | sed 'N;s/\\n/ /' | sort -f | uniq"),
+			(int)$licenseHeaderEndsAtLine,
+			escapeshellarg($file)
+		);
+
 		if ($gitRoot) {
 			chdir($buildDir);
 		}

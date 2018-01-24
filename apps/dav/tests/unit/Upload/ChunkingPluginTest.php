@@ -2,7 +2,7 @@
 /**
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -23,12 +23,12 @@
 namespace OCA\DAV\Tests\unit\Upload;
 
 
+use OCA\DAV\Connector\Sabre\Directory;
 use OCA\DAV\Upload\ChunkingPlugin;
+use OCA\DAV\Upload\FutureFile;
 use Sabre\HTTP\RequestInterface;
 use Sabre\HTTP\ResponseInterface;
 use Test\TestCase;
-use OCA\DAV\Upload\FutureFile;
-use OCA\DAV\Connector\Sabre\Directory;
 
 class ChunkingPluginTest extends TestCase {
 

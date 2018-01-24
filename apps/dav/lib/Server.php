@@ -8,7 +8,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -26,6 +26,8 @@
  */
 namespace OCA\DAV;
 
+use OC\Files\Filesystem;
+use OCA\DAV\AppInfo\PluginManager;
 use OCA\DAV\CalDAV\Schedule\IMipPlugin;
 use OCA\DAV\CardDAV\ImageExportPlugin;
 use OCA\DAV\Connector\Sabre\Auth;
@@ -38,40 +40,48 @@ use OCA\DAV\Connector\Sabre\DummyGetResponsePlugin;
 use OCA\DAV\Connector\Sabre\FakeLockerPlugin;
 use OCA\DAV\Connector\Sabre\FilesPlugin;
 use OCA\DAV\Connector\Sabre\FilesReportPlugin;
-use OCA\DAV\Connector\Sabre\SharesPlugin;
-use OCA\DAV\DAV\PublicAuth;
+use OCA\DAV\Connector\Sabre\MaintenancePlugin;
 use OCA\DAV\Connector\Sabre\QuotaPlugin;
-use OCA\DAV\Files\BrowserErrorPagePlugin;
+use OCA\DAV\Connector\Sabre\SharesPlugin;
+use OCA\DAV\Connector\Sabre\TagsPlugin;
+use OCA\DAV\Connector\Sabre\ValidateRequestPlugin;
 use OCA\DAV\DAV\FileCustomPropertiesBackend;
 use OCA\DAV\DAV\MiscCustomPropertiesBackend;
+use OCA\DAV\DAV\PublicAuth;
+use OCA\DAV\Files\BrowserErrorPagePlugin;
+use OCA\DAV\Files\PreviewPlugin;
 use OCA\DAV\SystemTag\SystemTagPlugin;
 use OCA\DAV\Upload\ChunkingPlugin;
 use OCP\IRequest;
 use OCP\SabrePluginEvent;
 use Sabre\CardDAV\VCFExportPlugin;
 use Sabre\DAV\Auth\Plugin;
-use OCA\DAV\Connector\Sabre\TagsPlugin;
-use OCA\DAV\AppInfo\PluginManager;
-use OCA\DAV\Connector\Sabre\MaintenancePlugin;
-use OCA\DAV\Connector\Sabre\ValidateRequestPlugin;
 
 class Server {
-
-	/** @var IRequest */
-	private $request;
 
 	/** @var Connector\Sabre\Server  */
 	public $server;
 
+	/** @var string */
+	private $baseUri;
+	/** @var IRequest */
+	private $request;
+
+	/**
+	 * Server constructor.
+	 *
+	 * @param IRequest $request
+	 * @param string $baseUri
+	 */
 	public function __construct(IRequest $request, $baseUri) {
 		$this->request = $request;
 		$this->baseUri = $baseUri;
 		$logger = \OC::$server->getLogger();
-		$mailer = \OC::$server->getMailer();
 		$dispatcher = \OC::$server->getEventDispatcher();
 
 		$root = new RootCollection();
-		$this->server = new \OCA\DAV\Connector\Sabre\Server($root);
+		$tree = new \OCA\DAV\Tree($root);
+		$this->server = new \OCA\DAV\Connector\Sabre\Server($tree);
 
 		// Backends
 		$authBackend = new Auth(
@@ -112,31 +122,43 @@ class Server {
 		$this->server->addPlugin(new \OCA\DAV\Connector\Sabre\LockPlugin());
 		$this->server->addPlugin(new \Sabre\DAV\Sync\Plugin());
 
-		// acl
-		$acl = new DavAclPlugin();
-		$acl->principalCollectionSet = [
-			'principals/users', 'principals/groups'
-		];
-		$acl->defaultUsernamePath = 'principals/users';
-		$this->server->addPlugin($acl);
+		// ACL plugin not used in files subtree, also it causes issues
+		// with performance and locking issues because it will query
+		// every parent node which might trigger an implicit rescan in the
+		// case of external storages with update detection
+		if (!$this->isRequestForSubtree(['files'])) {
+			// acl
+			$acl = new DavAclPlugin();
+			$acl->principalCollectionSet = [
+				'principals/users', 'principals/groups'
+			];
+			$acl->defaultUsernamePath = 'principals/users';
+			$this->server->addPlugin($acl);
+		}
 
 		// calendar plugins
-		$this->server->addPlugin(new \OCA\DAV\CalDAV\Plugin());
-		$this->server->addPlugin(new \Sabre\CalDAV\ICSExportPlugin());
-		$this->server->addPlugin(new \OCA\DAV\CalDAV\Schedule\Plugin());
-		$this->server->addPlugin(new IMipPlugin($mailer, $logger));
-		$this->server->addPlugin(new \Sabre\CalDAV\Subscriptions\Plugin());
-		$this->server->addPlugin(new \Sabre\CalDAV\Notifications\Plugin());
-		$this->server->addPlugin(new DAV\Sharing\Plugin($authBackend, \OC::$server->getRequest()));
-		$this->server->addPlugin(new \OCA\DAV\CalDAV\Publishing\PublishPlugin(
-			\OC::$server->getConfig(),
-			\OC::$server->getURLGenerator()
-		));
+		if ($this->isRequestForSubtree(['calendars', 'principals'])) {
+			$mailer = \OC::$server->getMailer();
+			$this->server->addPlugin(new \OCA\DAV\CalDAV\Plugin());
+			$this->server->addPlugin(new \Sabre\CalDAV\ICSExportPlugin());
+			$this->server->addPlugin(new \OCA\DAV\CalDAV\Schedule\Plugin());
+			$this->server->addPlugin(new IMipPlugin($mailer, $logger));
+			$this->server->addPlugin(new \Sabre\CalDAV\Subscriptions\Plugin());
+			$this->server->addPlugin(new \Sabre\CalDAV\Notifications\Plugin());
+			$this->server->addPlugin(new DAV\Sharing\Plugin($authBackend, \OC::$server->getRequest()));
+			$this->server->addPlugin(new \OCA\DAV\CalDAV\Publishing\PublishPlugin(
+				\OC::$server->getConfig(),
+				\OC::$server->getURLGenerator()
+			));
+		}
 
 		// addressbook plugins
-		$this->server->addPlugin(new \OCA\DAV\CardDAV\Plugin());
-		$this->server->addPlugin(new VCFExportPlugin());
-		$this->server->addPlugin(new ImageExportPlugin(\OC::$server->getLogger()));
+		if ($this->isRequestForSubtree(['addressbooks', 'principals'])) {
+			$this->server->addPlugin(new DAV\Sharing\Plugin($authBackend, \OC::$server->getRequest()));
+			$this->server->addPlugin(new \OCA\DAV\CardDAV\Plugin());
+			$this->server->addPlugin(new VCFExportPlugin());
+			$this->server->addPlugin(new ImageExportPlugin(\OC::$server->getLogger()));
+		}
 
 		// system tags plugins
 		$this->server->addPlugin(new SystemTagPlugin(
@@ -162,13 +184,14 @@ class Server {
 			$this->server->addPlugin(new BrowserErrorPagePlugin());
 		}
 
+		$this->server->addPlugin(new PreviewPlugin($logger));
 		// wait with registering these until auth is handled and the filesystem is setup
 		$this->server->on('beforeMethod', function () use ($root) {
 			// custom properties plugin must be the last one
 			$userSession = \OC::$server->getUserSession();
 			$user = $userSession->getUser();
 			if (!is_null($user)) {
-				$view = \OC\Files\Filesystem::getView();
+				$view = Filesystem::getView();
 				$this->server->addPlugin(
 					new FilesPlugin(
 						$this->server->tree,
@@ -254,5 +277,19 @@ class Server {
 
 	public function exec() {
 		$this->server->exec();
+	}
+
+	/**
+	 * @param string[] $subTree
+	 * @return bool
+	 */
+	private function isRequestForSubtree(array $subTrees) {
+		foreach ($subTrees as $subTree) {
+		$subTree = trim($subTree, " /");
+			if (strpos($this->server->getRequestUri(), "$subTree/") === 0) {
+				return true;
+			}
+		}
+		return false;
 	}
 }

@@ -2,7 +2,7 @@
 /**
  * @author Tom Needham <tom@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -55,7 +55,6 @@ use OC\Settings\Panels\Admin\FileSharing;
 use OC\Settings\Panels\Admin\Mail;
 use OC\Settings\Panels\Admin\Logging;
 use OC\Settings\Panels\Admin\SecurityWarning;
-use OC\Settings\Panels\Admin\Updater;
 use OC\Settings\Panels\Admin\Tips;
 use OC\Settings\Panels\Admin\Status;
 

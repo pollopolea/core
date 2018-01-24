@@ -2,7 +2,7 @@
 /**
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -21,24 +21,24 @@
 
 namespace Test\Files\Storage;
 
-use Test\TestCase;
-use OCP\Http\Client\IClientService;
-use OCP\Http\Client\IClient;
-use Sabre\DAV\Client;
-use OCP\Http\Client\IWebDavClientService;
-use Sabre\HTTP\ClientHttpException;
-use OCP\Lock\LockedException;
-use OCP\AppFramework\Http;
-use OCP\Files\StorageInvalidException;
-use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Exception\ClientException;
-use Sabre\DAV\Exception\InsufficientStorage;
-use Sabre\DAV\Exception\Forbidden;
-use OCP\Files\StorageNotAvailableException;
-use OC\Files\Storage\DAV;
-use OCP\Files\FileInfo;
-use OCP\AppFramework\Utility\ITimeFactory;
+use GuzzleHttp\Exception\ServerException;
 use OC\Files\Cache\Cache;
+use OC\Files\Storage\DAV;
+use OCP\AppFramework\Http;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Files\FileInfo;
+use OCP\Files\StorageInvalidException;
+use OCP\Files\StorageNotAvailableException;
+use OCP\Http\Client\IClient;
+use OCP\Http\Client\IClientService;
+use OCP\Http\Client\IWebDavClientService;
+use OCP\Lock\LockedException;
+use Sabre\DAV\Client;
+use Sabre\DAV\Exception\Forbidden;
+use Sabre\DAV\Exception\InsufficientStorage;
+use Sabre\HTTP\ClientHttpException;
+use Test\TestCase;
 
 /**
  * Class DavTest

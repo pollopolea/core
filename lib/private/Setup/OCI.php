@@ -10,7 +10,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Victor Dubiniuk <dubiniuk@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -201,7 +201,7 @@ class OCI extends AbstractDatabase {
 		}
 
 		if(! oci_fetch_row($stmt)) {
-			//user does not exists let's create it :)
+			//user does not exist, so let's create them :)
 			//password must start with alphabetic character in oracle
 			$query = 'CREATE USER '.$name.' IDENTIFIED BY "'.$password.'" DEFAULT TABLESPACE '.$this->dbtablespace;
 			$stmt = oci_parse($connection, $query);

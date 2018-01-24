@@ -2,7 +2,7 @@
 /**
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -23,9 +23,20 @@
 namespace OCA\DAV\Meta;
 
 
+use OC\Files\Meta\MetaFileVersionNode;
+use OCA\DAV\Files\ICopySource;
+use OCA\DAV\Files\IProvidesAdditionalHeaders;
+use OCA\DAV\Files\IFileNode;
+use OCP\Files\Node;
 use Sabre\DAV\File;
 
-class MetaFile extends File {
+/**
+ * Class MetaFile
+ * This is a Sabre based implementation of a file living in the /meta resource.
+ *
+ * @package OCA\DAV\Meta
+ */
+class MetaFile extends File implements ICopySource, IFileNode, IProvidesAdditionalHeaders {
 
 	/** @var \OCP\Files\File */
 	private $file;
@@ -74,7 +85,47 @@ class MetaFile extends File {
 		return $this->file->getMTime();
 	}
 
+	/**
+	 * @inheritdoc
+	 */
 	public function getETag() {
 		return $this->file->getEtag();
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	public function copy($path) {
+		if ($this->file instanceof MetaFileVersionNode) {
+			return $this->file->copy($path);
+		}
+		return false;
+	}
+
+	/**
+	 * @return array
+	 */
+	public function getHeaders() {
+		if ($this->file instanceof \OCP\Files\IProvidesAdditionalHeaders) {
+			return $this->file->getHeaders();
+		}
+		return [];
+	}
+
+	/**
+	 * @return string
+	 */
+	public function getContentDispositionFileName() {
+		if ($this->file instanceof \OCP\Files\IProvidesAdditionalHeaders) {
+			return $this->file->getContentDispositionFileName();
+		}
+		return $this->getName();
+	}
+
+	/**
+	 * @return Node
+	 */
+	public function getNode() {
+		return $this->file;
 	}
 }

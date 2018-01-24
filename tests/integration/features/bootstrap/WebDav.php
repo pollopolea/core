@@ -1,10 +1,10 @@
 <?php
 
 use GuzzleHttp\Client as GClient;
+use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Message\ResponseInterface;
 use Sabre\DAV\Client as SClient;
 use Sabre\DAV\Xml\Property\ResourceType;
-use GuzzleHttp\Exception\ServerException;
 use TestHelpers\WebDavHelper;
 
 require __DIR__ . '/../../../../lib/composer/autoload.php';
@@ -17,11 +17,11 @@ trait WebDav {
 	private $usingOldDavPath = true;
 	/** @var ResponseInterface[] */
 	private $uploadResponses;
-	/** @var map with user as key and another map as value, which has path as key and etag as value */
+	/** @var array map with user as key and another map as value, which has path as key and etag as value */
 	private $storedETAG = NULL;
 	/** @var integer */
 	private $storedFileID = NULL;
-	
+
 	/**
 	 * a variable that contains the dav path without "remote.php/(web)dav"
 	 * when setting $this->davPath directly by usingDavPath()
@@ -282,7 +282,7 @@ trait WebDav {
 		}
 		$this->response = $this->listFolder($user, $path, 0, $properties);
 	}
-	
+
 	/**
 	 * @Given as :arg1 gets a custom property :arg2 of file :arg3
 	 * @param string $user
@@ -313,7 +313,7 @@ trait WebDav {
 		];
 		$client->proppatch($this->makeSabrePath($user, $path), $properties);
 	}
-	
+
 	/**
 	 * @Then /^the response should contain a custom "([^"]*)" property with "([^"]*)"$/
 	 * @param string $propertyName
@@ -329,7 +329,7 @@ trait WebDav {
 			throw new \Exception("\"$propertyName\" has a value \"${keys[$propertyName]}\" but \"$propertyValue\" expected");
 		}
 	}
-	
+
 	/**
 	 * @Then /^as "([^"]*)" the (file|folder|entry) "([^"]*)" does not exist$/
 	 * @param string $user
@@ -354,6 +354,9 @@ trait WebDav {
 	 */
 	public function asTheFileOrFolderExists($user, $entry, $path) {
 		$this->response = $this->listFolder($user, $path, 0);
+		if (!is_array($this->response) || !isset($this->response['{DAV:}getetag'])) {
+			throw new \Exception($entry . ' "' . $path . '" expected to exist but not found');
+		}
 	}
 
 	/**
@@ -517,6 +520,16 @@ trait WebDav {
 	}
 
 	/**
+	 * @Then the version folder of fileId :fileId contains :count elements
+	 * @param int $count
+	 * @param int $fileId
+	 */
+	public function theVersionFolderOfFileIdContainsElements($fileId, $count) {
+		$elements = $this->listVersionFolder($this->currentUser, '/meta/'.$fileId.'/v', 1);
+		PHPUnit_Framework_Assert::assertEquals($count, count($elements)-1);
+	}
+
+	/**
 	 * @Then the content length of file :path with version index :index for user :user in versions folder is :length
 	 * @param $path
 	 * @param $index
@@ -527,7 +540,7 @@ trait WebDav {
 		$fileId = $this->getFileIdForPath($user, $path);
 		$elements = $this->listVersionFolder($user, '/meta/'.$fileId.'/v', 1, ['{DAV:}getcontentlength']);
 		$elements = array_values($elements);
-		PHPUnit_Framework_Assert::assertEquals($length, $elements[1]['{DAV:}getcontentlength']);
+		PHPUnit_Framework_Assert::assertEquals($length, $elements[$index]['{DAV:}getcontentlength']);
 	}
 
 	/* Returns the elements of a report command
@@ -690,7 +703,7 @@ trait WebDav {
 	 * @param string $destination
 	 */
 	public function userUploadsAFileToWithAllMechanisms($user, $source, $destination) {
-		$this->uploadResponses = $this->uploadWithAllMechanisms($user, $source, $destination, false); 
+		$this->uploadResponses = $this->uploadWithAllMechanisms($user, $source, $destination, false);
 	}
 
 	/**
@@ -702,7 +715,7 @@ trait WebDav {
 	 * @param string $destination
 	 */
 	public function userOverwritesAFileToWithAllMechanisms($user, $source, $destination) {
-		$this->uploadResponses = $this->uploadWithAllMechanisms($user, $source, $destination, true); 
+		$this->uploadResponses = $this->uploadWithAllMechanisms($user, $source, $destination, true);
 	}
 
 	/**
@@ -779,6 +792,21 @@ trait WebDav {
 	}
 
 	/**
+	 * Check that all the files uploaded with old/new dav and chunked/non-chunked exist.
+	 *
+	 * @Then as :user the files uploaded to :destination with all mechanisms exist
+	 * @param string $user
+	 * @param string $destination
+	 */
+	public function filesUploadedToWithAllMechanismsExist($user, $destination) {
+		foreach (['old', 'new'] as $davVersion) {
+			foreach ([$davVersion . 'dav-regular', $davVersion . 'dav-' . $davVersion . 'chunking'] as $suffix) {
+				$this->asTheFileOrFolderExists($user, 'file', $destination . '-' . $suffix);
+			}
+		}
+	}
+
+	/**
 	 * @When User :user adds a file of :bytes bytes to :destination
 	 * @param string $user
 	 * @param string $bytes
@@ -787,7 +815,7 @@ trait WebDav {
 	public function userAddsAFileTo($user, $bytes, $destination) {
 		$filename = "filespecificSize.txt";
 		$this->createFileSpecificSize($filename, $bytes);
-		PHPUnit_Framework_Assert::assertEquals(1, file_exists("work/$filename"));
+		PHPUnit_Framework_Assert::assertFileExists("work/$filename");
 		$this->userUploadsAFileTo($user, "work/$filename", $destination);
 		$this->removeFile("work/", $filename);
 		$expectedElements = new \Behat\Gherkin\Node\TableNode([["$destination"]]);
@@ -802,6 +830,7 @@ trait WebDav {
 		$file = \GuzzleHttp\Stream\Stream::factory($content);
 		try {
 			$this->response = $this->makeDavRequest($user, "PUT", $destination, [], $file);
+			return $this->response->getHeader('oc-fileid');
 		} catch (\GuzzleHttp\Exception\ServerException $e) {
 			// 4xx and 5xx responses cause an exception
 			$this->response = $e->getResponse();
@@ -1152,8 +1181,7 @@ trait WebDav {
 	 * @Given /^user "([^"]*)" stores id of file "([^"]*)"$/
 	 * @param string $user
 	 * @param string $path
-	 * @param string $fileid
-	 * @return int
+	 * @return void
 	 */
 	public function userStoresFileIdForPath($user, $path) {
 		$this->storedFileID = $this->getFileIdForPath($user, $path);
@@ -1163,11 +1191,24 @@ trait WebDav {
 	 * @Given /^user "([^"]*)" checks id of file "([^"]*)"$/
 	 * @param string $user
 	 * @param string $path
-	 * @param string $fileid
-	 * @return int
+	 * @return void
 	 */
 	public function userChecksFileIdForPath($user, $path) {
 		$currentFileID = $this->getFileIdForPath($user, $path);
 		PHPUnit_Framework_Assert::assertEquals($currentFileID, $this->storedFileID);
 	}
+
+	/**
+	 * @When user :user restores version index :versionIndex of file :path
+	 * @param string $user
+	 * @param int $versionIndex
+	 * @param string $path
+	 */
+	public function userRestoresVersionIndexOfFile($user, $versionIndex, $path) {
+		$fileId = $this->getFileIdForPath($user, $path);
+		$client = $this->getSabreClient($user);
+		$versions = array_keys($this->listVersionFolder($user, '/meta/'.$fileId.'/v', 1));
+		$client->request('COPY', $versions[$versionIndex], null, ['Destination' => $this->makeSabrePath($user, $path)]);
+	}
+
 }

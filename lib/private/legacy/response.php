@@ -11,7 +11,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -299,7 +299,7 @@ class OC_Response {
 
 			foreach ($headers as $key => $value) {
 				if (array_key_exists($key, $allHeaders)) {
-					$allHeaders[$key] = array_merge($allHeaders[$key], $value);
+					$allHeaders[$key] = array_unique(array_merge($allHeaders[$key], $value));
 				}
 			}
 
@@ -333,7 +333,7 @@ class OC_Response {
 
 		foreach ($headers as $key => $value) {
 			if (array_key_exists($key, $allHeaders)) {
-				$allHeaders[$key] = array_merge($allHeaders[$key], $value);
+				$allHeaders[$key] = array_unique(array_merge($allHeaders[$key], $value));
 			}
 		}
 

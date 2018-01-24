@@ -8,7 +8,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -31,20 +31,20 @@ use Doctrine\DBAL\Connection;
 use OC\Core\Command\Base;
 use OC\Core\Command\InterruptedException;
 use OC\ForbiddenException;
+use OC\Migration\ConsoleOutput;
+use OC\Repair\RepairMismatchFileCachePath;
+use OCP\Files\IMimeTypeLoader;
 use OCP\Files\StorageNotAvailableException;
+use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IUserManager;
+use OCP\Lock\ILockingProvider;
+use OCP\Lock\LockedException;
+use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Helper\Table;
-use OC\Repair\RepairMismatchFileCachePath;
-use OC\Migration\ConsoleOutput;
-use OCP\Lock\ILockingProvider;
-use OCP\Lock\LockedException;
-use OCP\Files\IMimeTypeLoader;
-use OCP\IConfig;
 
 class Scan extends Base {
 
@@ -85,42 +85,42 @@ class Scan extends Base {
 			->addArgument(
 				'user_id',
 				InputArgument::OPTIONAL | InputArgument::IS_ARRAY,
-				'will rescan all files of the given user(s)'
+				'Will rescan all files of the given user(s).'
 			)
 			->addOption(
 				'path',
 				'p',
 				InputArgument::OPTIONAL,
-				'limit rescan to this path, eg. --path="/alice/files/Music", the user_id is determined by the path and the user_id parameter and --all are ignored'
+				'Limit rescan to this path, e.g., --path="/alice/files/Music", the user_id is determined by the path and the user_id parameter and --all are ignored.'
 			)
 			->addOption(
 				'quiet',
 				'q',
 				InputOption::VALUE_NONE,
-				'suppress any output'
+				'Suppress any output.'
 			)
 			->addOption(
 				'verbose',
 				'-v|vv|vvv',
 				InputOption::VALUE_NONE,
-				'verbose the output'
+				"Increase the output's verbosity."
 			)
 			->addOption(
 				'all',
 				null,
 				InputOption::VALUE_NONE,
-				'will rescan all files of all known users'
+				'Will rescan all files of all known users.'
 			)
 			->addOption(
 				'repair',
 				null,
 				InputOption::VALUE_NONE,
-				'will repair detached filecache entries (slow)'
+				'Will repair detached filecache entries (slow).'
 			)->addOption(
 				'unscanned',
 				null,
 				InputOption::VALUE_NONE,
-				'only scan files which are marked as not fully scanned'
+				'Only scan files which are marked as not fully scanned.'
 			);
 	}
 
@@ -157,7 +157,7 @@ class Scan extends Base {
 				try {
 					// FIXME: this will lock the storage even if there is nothing to repair
 					$storage->acquireLock('', ILockingProvider::LOCK_EXCLUSIVE, $this->lockingProvider);
-				} catch (OCP\Lock\LockedException $e) {
+				} catch (LockedException $e) {
 					$output->writeln("\t<error>Storage \"" . $storage->getCache()->getNumericStorageId() . '" cannot be repaired as it is currently in use, please try again later</error>');
 					return;
 				}
@@ -247,15 +247,17 @@ class Scan extends Base {
 		} else if ($input->getOption('all')) {
 			// we can only repair all storages in bulk (more efficient) if singleuser or maintenance mode
 			// is enabled to prevent concurrent user access
-			if ($input->getOption('repair') &&
-				($this->config->getSystemValue('singleuser', false) || $this->config->getSystemValue('maintenance', false))) {
-				// repair all storages at once
-				$this->repairAll($output);
-				// don't fix individually
-				$shouldRepairStoragesIndividually = false;
-			} else {
-				$output->writeln("<comment>Repairing every storage individually is slower than repairing in bulk</comment>");
-				$output->writeln("<comment>To repair in bulk, please switch to single user mode first: occ maintenance:singleuser --on</comment>");
+			if ($input->getOption('repair')) {
+				if ($this->config->getSystemValue('singleuser', false) || $this->config->getSystemValue('maintenance', false)) {
+					// repair all storages at once
+					$this->repairAll($output);
+					// don't fix individually
+					$shouldRepairStoragesIndividually = false;
+				} else {
+					$output->writeln("<comment>Please switch to single user mode to repair all storages: occ maintenance:singleuser --on</comment>");
+					$output->writeln("<comment>Alternatively, you can specify a user to repair. Please note that this is slower than repairing in bulk</comment>");
+					return 1;
+				}
 			}
 			$users = $this->userManager->search('');
 		} else {

@@ -3,7 +3,7 @@
  * ownCloud
  *
  * @author Artur Neumann <artur@jankaritech.com>
- * @copyright 2017 Artur Neumann artur@jankaritech.com
+ * @copyright Copyright (c) 2017 Artur Neumann artur@jankaritech.com
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -23,12 +23,14 @@
 use Behat\Behat\Context\Context;
 use Behat\Behat\Hook\Scope\AfterScenarioScope;
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
-use Behat\MinkExtension\Context\RawMinkContext;
 use Behat\Gherkin\Node\TableNode;
-use Page\OwncloudPage;
+use Behat\MinkExtension\Context\RawMinkContext;
 use Page\LoginPage;
-use TestHelpers\SetupHelper;
+use Page\OwncloudPage;
 use TestHelpers\AppConfigHelper;
+use TestHelpers\SetupHelper;
+use TestHelpers\UploadHelper;
+use TestHelpers\UserHelper;
 
 require_once 'bootstrap.php';
 
@@ -43,6 +45,21 @@ class FeatureContext extends RawMinkContext implements Context {
 	private $owncloudPage;
 	private $loginPage;
 	private $oldCSRFSetting = null;
+	private $currentUser = null;
+	private $currentServer = null;
+	private $createdFiles = [];
+
+	/**
+	 *
+	 * @var FilesContext
+	 */
+	private $filesContext = null;
+
+	/**
+	 * 
+	 * @var Page\OwncloudPage
+	 */
+	private $currentPageObject = null;
 	
 	/**
 	 * @var string the original capabilities in XML format
@@ -96,6 +113,40 @@ class FeatureContext extends RawMinkContext implements Context {
 	];
 	
 	/**
+	 * @return string
+	 */
+	public function getCurrentUser() {
+		return $this->currentUser;
+	}
+
+	/**
+	 * @param string $currentUser
+	 * @return void
+	 */
+	public function setCurrentUser($currentUser) {
+		$this->currentUser = $currentUser;
+	}
+
+	/**
+	 * @return string
+	 */
+	public function getCurrentServer() {
+		if (is_null($this->currentServer)) {
+			return $this->getMinkParameter("base_url");
+		}
+
+		return $this->currentServer;
+	}
+
+	/**
+	 * @param string $currentServer
+	 * @return void
+	 */
+	public function setCurrentServer($currentServer) {
+		$this->currentServer = $currentServer;
+	}
+
+	/**
 	 * FeatureContext constructor.
 	 *
 	 * @param OwncloudPage $owncloudPage
@@ -104,6 +155,23 @@ class FeatureContext extends RawMinkContext implements Context {
 	public function __construct(OwncloudPage $owncloudPage, LoginPage $loginPage) {
 		$this->owncloudPage = $owncloudPage;
 		$this->loginPage = $loginPage;
+	}
+
+	/**
+	 * 
+	 * @param OwncloudPage $pageObject
+	 * @return void
+	 */
+	public function setCurrentPageObject(OwncloudPage $pageObject) {
+		$this->currentPageObject = $pageObject;
+	}
+
+	/**
+	 * 
+	 * @return OwncloudPage
+	 */
+	public function getCurrentPageObject() {
+		return $this->currentPageObject;
 	}
 
 	/**
@@ -118,11 +186,13 @@ class FeatureContext extends RawMinkContext implements Context {
 	}
 
 	/**
-	 * @Then notifications should be displayed with the text
+	 * @Then /^notifications should be displayed with the text\s?(matching|)$/
+	 * @param string $matching contains "matching" when notification text
+	 * 						   has to be checked against regular expression
 	 * @param TableNode $table of expected notification text
 	 * @return void
 	 */
-	public function notificationsShouldBeDisplayedWithTheText(TableNode $table) {
+	public function notificationsShouldBeDisplayedWithTheText($matching, TableNode $table) {
 		$notifications = $this->owncloudPage->getNotifications();
 		$tableRows = $table->getRows();
 		PHPUnit_Framework_Assert::assertGreaterThanOrEqual(
@@ -132,46 +202,73 @@ class FeatureContext extends RawMinkContext implements Context {
 
 		$notificationCounter = 0;
 		foreach ($tableRows as $row) {
-			PHPUnit_Framework_Assert::assertEquals(
-				$row[0],
-				$notifications[$notificationCounter]
-			);
+			if ($matching === "matching") {
+				if (!preg_match($row[0], $notifications[$notificationCounter])) {
+					throw new Exception($notifications[$notificationCounter] . " does not match " . $row[0]);
+				}
+			} else {
+				PHPUnit_Framework_Assert::assertEquals(
+					$row[0],
+					$notifications[$notificationCounter]
+				);
+			}
 			$notificationCounter++;
 		}
 	}
 
 	/**
-	 * @Then dialogs should be displayed
-	 * @param TableNode $table of expected dialogs format must be:
-	 *                         | title | content |
+	 * @Then /^((?:\d)|no)?\s?dialog[s]? should be displayed$/
+	 * @param int|string|null $count
+	 * @param TableNode|null $table of expected dialogs format must be:
+	 *                              | title | content |
 	 * @return void
 	 */
-	public function dialogsShouldBeDisplayed(TableNode $table) {
+	public function dialogsShouldBeDisplayed(
+		$count = null, TableNode $table = null
+	) {
 		$dialogs = $this->owncloudPage->getOcDialogs();
-		$expectedDialogs = $table->getHash();
-		//we iterate first through the real dialogs because that way we can
-		//save time by calling getMessage() & getTitle() only once
-		foreach ($dialogs as $dialog) {
-			$content = $dialog->getMessage();
-			$title = $dialog->getTitle();
-			for ($dialogI = 0; $dialogI < count($expectedDialogs); $dialogI++) {
-				$expectedDialogs[$dialogI]['content'] = $this->substituteInLineCodes(
-					$expectedDialogs[$dialogI]['content']
-				);
-				if ($expectedDialogs[$dialogI]['content'] === $content
-					&& $expectedDialogs[$dialogI]['title'] === $title
-				) {
-					$expectedDialogs[$dialogI]['found'] = true;
+		//check if the correct number of dialogs are open
+		if ($count !== null) {
+			if ($count === "no") {
+				$count = 0;
+			} else {
+				$count = (int) $count;
+			}
+			$currentTime = microtime(true);
+			$end = $currentTime + (STANDARDUIWAITTIMEOUTMILLISEC / 1000);
+			while ($currentTime <= $end && ($count !== count($dialogs))) {
+				usleep(STANDARDSLEEPTIMEMICROSEC);
+				$currentTime = microtime(true);
+				$dialogs = $this->owncloudPage->getOcDialogs();
+			}
+			PHPUnit_Framework_Assert::assertEquals($count, count($dialogs));
+		}
+		if ($table !== null) {
+			$expectedDialogs = $table->getHash();
+			//we iterate first through the real dialogs because that way we can
+			//save time by calling getMessage() & getTitle() only once
+			foreach ($dialogs as $dialog) {
+				$content = $dialog->getMessage();
+				$title = $dialog->getTitle();
+				for ($dialogI = 0; $dialogI < count($expectedDialogs); $dialogI++) {
+					$expectedDialogs[$dialogI]['content'] = $this->substituteInLineCodes(
+						$expectedDialogs[$dialogI]['content']
+					);
+					if ($expectedDialogs[$dialogI]['content'] === $content
+						&& $expectedDialogs[$dialogI]['title'] === $title
+					) {
+						$expectedDialogs[$dialogI]['found'] = true;
+					}
 				}
 			}
-		}
-		foreach ($expectedDialogs as $expectedDialog) {
-			PHPUnit_Framework_Assert::assertArrayHasKey(
-				"found",
-				$expectedDialog,
-				"could not find dialog with title '" . $expectedDialog['title'] .
-				"' and content '" . $expectedDialog['content'] . "'"
-			);
+			foreach ($expectedDialogs as $expectedDialog) {
+				PHPUnit_Framework_Assert::assertArrayHasKey(
+					"found",
+					$expectedDialog,
+					"could not find dialog with title '" . $expectedDialog['title'] .
+					"' and content '" . $expectedDialog['content'] . "'"
+				);
+			}
 		}
 	}
 
@@ -195,7 +292,11 @@ class FeatureContext extends RawMinkContext implements Context {
 	 * @throws Exception
 	 */
 	public function theGroupNamedShouldNotExist($name) {
-		if (in_array($name, SetupHelper::getGroups(), true)) {
+		$groups = UserHelper::getGroupsAsArray(
+			$this->getMinkParameter("base_url"), "admin",
+			$this->getUserPassword("admin")
+		);
+		if (in_array($name, $groups, true)) {
 			throw new Exception("group '" . $name . "' exists but should not");
 		}
 	}
@@ -256,6 +357,24 @@ class FeatureContext extends RawMinkContext implements Context {
 	}
 
 	/**
+	 * @Given a file with the size of :size bytes and the name :name exists
+	 * @param int $size if not int given it will be cast to int
+	 * @param string $name
+	 * @throws InvalidArgumentException
+	 * @return void
+	 */
+	public function aFileWithSizeAndNameExists($size, $name) {
+		$fullPath = getenv("FILES_FOR_UPLOAD") . $name;
+		if (file_exists($fullPath)) {
+			throw new InvalidArgumentException(
+				__METHOD__ . " could not create '$fullPath' file exists"
+			);
+		}
+		UploadHelper::createFileSpecificSize($fullPath, (int)$size);
+		$this->createdFiles[] = $fullPath;
+	}
+
+	/**
 	 * returns the saved capabilities as XML
 	 * 
 	 * @return string
@@ -287,12 +406,27 @@ class FeatureContext extends RawMinkContext implements Context {
 	 * @return void
 	 */
 	public function setUpSuite(BeforeScenarioScope $scope) {
-		SetupHelper::setOcPath($scope);
+		// Get the environment
+		$environment = $scope->getEnvironment();
+		// Get all the contexts you need in this context
+		try {
+			$this->filesContext = $environment->getContext('FilesContext');
+		} catch (Exception $e) {
+			//we don't care if the context cannot be found
+			//if the developer forgets to include it the test will fail anyway
+			//but by ignoring this error we do not force every UI test suite
+			//to include FilesContext
+		}
+
 		$suiteParameters = SetupHelper::getSuiteParameters($scope);
 		$this->adminPassword = (string)$suiteParameters['adminPassword'];
+		SetupHelper::init(
+			"admin", $this->getUserPassword("admin"),
+			$this->getMinkParameter('base_url'), $suiteParameters['ocPath']
+		);
 		
 		$response = AppConfigHelper::getCapabilities(
-			$this->getMinkParameter('base_url'), "admin", $this->adminPassword
+			$this->getMinkParameter('base_url'), "admin", $this->getUserPassword("admin")
 		);
 		$this->savedCapabilitiesXml = AppConfigHelper::getCapabilitiesXml(
 			$response
@@ -336,7 +470,7 @@ class FeatureContext extends RawMinkContext implements Context {
 			AppConfigHelper::modifyServerConfig(
 				$this->getMinkParameter('base_url'),
 				"admin",
-				$this->adminPassword,
+				$this->getUserPassword("admin"),
 				$capabilitiesChange['testingApp'],
 				$capabilitiesChange['testingParameter'],
 				$capabilitiesChange['savedState'] ? 'yes' : 'no'
@@ -357,11 +491,16 @@ class FeatureContext extends RawMinkContext implements Context {
 				]
 			);
 		}
+		
+		foreach ($this->createdFiles as $file) {
+			unlink($file);
+		}
 	}
 
 	/**
 	 * After Scenario. Report the pass/fail status to SauceLabs.
 	 *
+	 * @param AfterScenarioScope $afterScenarioScope
 	 * @return void
 	 * @AfterScenario
 	 */

@@ -7,7 +7,7 @@
  * @author Tom Needham <tom@owncloud.com>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -30,15 +30,15 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCSController;
 use OCP\Contacts\IManager;
+use OCP\IConfig;
 use OCP\IGroup;
 use OCP\IGroupManager;
 use OCP\ILogger;
 use OCP\IRequest;
+use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\IUserManager;
-use OCP\IConfig;
 use OCP\IUserSession;
-use OCP\IURLGenerator;
 use OCP\Share;
 
 class ShareesController extends OCSController  {

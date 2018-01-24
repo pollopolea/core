@@ -10,7 +10,7 @@ default:
         - %paths.base%/../features/files
       context: &common_suite_context
         parameters:
-          ocPath: ./
+          ocPath: apps/testing/api/v1/occ
           adminPassword: admin
           regularUserPassword: 123456
           regularUserName: regularuser
@@ -63,9 +63,9 @@ default:
         - UsersContext:
         - FilesContext:
 
-    sharing:
+    sharingInternalGroupsUsers:
       paths:
-        - %paths.base%/../features/sharing
+        - %paths.base%/../features/sharingInternalGroupsUsers
       context: *common_suite_context
       contexts:
         - FeatureContext:
@@ -73,6 +73,27 @@ default:
         - UsersContext:
         - FilesContext:
         - SharingContext:
+
+    sharingExternalOther:
+      paths:
+        - %paths.base%/../features/sharingExternalOther
+      context: *common_suite_context
+      contexts:
+        - FeatureContext:
+        - LoginContext:
+        - UsersContext:
+        - FilesContext:
+        - SharingContext:
+
+    upload:
+      paths:
+        - %paths.base%/../features/upload
+      context: *common_suite_context
+      contexts:
+        - FeatureContext:
+        - LoginContext:
+        - UsersContext:
+        - FilesContext:
 
     restrictSharing:
       paths:

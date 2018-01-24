@@ -4,7 +4,7 @@
  * ownCloud
  *
  * @author Artur Neumann <artur@jankaritech.com>
- * @copyright 2017 Artur Neumann artur@jankaritech.com
+ * @copyright Copyright (c) 2017 Artur Neumann artur@jankaritech.com
  *
  * This code is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License,
@@ -24,10 +24,10 @@
 namespace Page\FilesPageElement;
 
 use Behat\Mink\Element\NodeElement;
+use Behat\Mink\Session;
+use Page\FilesPageElement\SharingDialogElement\PublicLinkTab;
 use Page\OwncloudPage;
 use SensioLabs\Behat\PageObjectExtension\PageObject\Exception\ElementNotFoundException;
-use Behat\Mink\Session;
-use WebDriver\Exception\UnknownError;
 
 /**
  * The Sharing Dialog
@@ -47,7 +47,7 @@ class SharingDialog extends OwncloudPage {
 	protected $autocompleteItemsTextXpath = "//*[@class='autocomplete-item-text']";
 	protected $shareWithCloseXpath = "//div[@id='app-sidebar']//*[@class='close icon-close']";
 	protected $suffixToIdentifyGroups = " (group)";
-	protected $suffixToIdentifyRemoteUsers = " (remote)";
+	protected $suffixToIdentifyRemoteUsers = " (federated)";
 	protected $sharerInformationXpath = ".//*[@class='reshare']";
 	protected $sharedWithAndByRegEx = "^(?:[A-Z]\s)?Shared with you(?: and the group (.*))? by (.*)$";
 	protected $thumbnailContainerXpath = ".//*[contains(@class,'thumbnailContainer')]";
@@ -55,6 +55,7 @@ class SharingDialog extends OwncloudPage {
 	protected $permissionsFieldByUserName = ".//*[@id='shareWithList']//*[@class='has-tooltip username' and .='%s']/..";
 	protected $permissionLabelXpath = ".//label[@for='%s']";
 	protected $showCrudsXpath = ".//*[@class='showCruds']";
+	protected $publicShareTabLinkXpath = ".//li[contains(@class,'subtab-publicshare')]";
 
 	protected $sharedWithGroupAndSharerName = null;
 
@@ -442,6 +443,28 @@ class SharingDialog extends OwncloudPage {
 			);
 		}
 		return $thumbnail;
+	}
+
+	/**
+	 * 
+	 * @throws ElementNotFoundException
+	 * @return PublicLinkTab
+	 */
+	public function openPublicShareTab() {
+		$publicShareTabLink = $this->find("xpath", $this->publicShareTabLinkXpath);
+		if (is_null($publicShareTabLink)) {
+			throw new ElementNotFoundException(
+				__METHOD__ .
+				" xpath $this->publicShareTabLinkXpath " .
+				"could not find link to open public share tab"
+			);
+		}
+		$publicShareTabLink->click();
+		$publicLinkTab = $this->getPage(
+			"FilesPageElement\\SharingDialogElement\\PublicLinkTab"
+		);
+		$publicLinkTab->initElement();
+		return $publicLinkTab;
 	}
 
 	/**

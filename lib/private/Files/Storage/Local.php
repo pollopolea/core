@@ -17,7 +17,7 @@
  * @author Tigran Mkrtchyan <tigran.mkrtchyan@desy.de>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -372,6 +372,12 @@ class Local extends Common {
 		if ($realPath) {
 			$realPath = $realPath . '/';
 		}
+
+		// Is broken symlink?
+		if (is_link($fullPath) && !file_exists($fullPath)) {
+			throw new ForbiddenException("$fullPath is a broken/dead symlink", false);
+		}
+
 		if (substr($realPath, 0, $this->dataDirLength) === $this->realDataDir) {
 			return $fullPath;
 		} else {
